@@ -7,9 +7,8 @@ import (
 	"launchpad.net/goyaml"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
-	"strings"
-	"sync"
 )
 
 type Vars map[string]interface{}
@@ -19,156 +18,6 @@ type VarsFiles []interface{}
 type Notifications []string
 
 type TaskData map[string]interface{}
-
-type PlayEnv struct {
-	Vars      Vars
-	lispScope *lisp.Scope
-	to_notify map[string]struct{}
-	async     chan *AsyncAction
-	wait      sync.WaitGroup
-}
-
-func (pe *PlayEnv) Init() {
-	pe.to_notify = make(map[string]struct{})
-	pe.lispScope.AddEnv()
-	pe.async = make(chan *AsyncAction)
-
-	go pe.handleAsync()
-}
-
-func (pe *PlayEnv) Set(key string, val interface{}) {
-	pe.Vars[key] = val
-
-	switch lv := val.(type) {
-	case int64:
-		pe.lispScope.Set(key, lisp.NumberValue(lv))
-	default:
-		pe.lispScope.Set(key, lisp.StringValue(fmt.Sprintf("%s", lv)))
-	}
-}
-
-func (pe *PlayEnv) Get(key string) (interface{}, bool) {
-	v, ok := pe.Vars[key]
-
-	return v, ok
-}
-
-func (pe *PlayEnv) AddNotify(n string) {
-	pe.to_notify[n] = struct{}{}
-}
-
-func (pe *PlayEnv) ShouldRunHandler(name string) bool {
-	_, ok := pe.to_notify[name]
-
-	return ok
-}
-
-func (pe *PlayEnv) AsyncChannel() chan *AsyncAction {
-	return pe.async
-}
-
-type strmap map[string]interface{}
-
-type Task struct {
-	data TaskData
-	cmd  string
-	args string
-	Vars strmap
-}
-
-var cOptions = []string{"name", "action", "notify", "async", "poll",
-	"when"}
-
-func (t *Task) Init() error {
-	t.Vars = make(strmap)
-
-	for k, v := range t.data {
-		found := false
-
-		for _, i := range cOptions {
-			if k == i {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			t.cmd = k
-			if m, ok := v.(map[interface{}]interface{}); ok {
-				for ik, iv := range m {
-					t.Vars[fmt.Sprintf("%v", ik)] = iv
-				}
-			}
-
-			t.args = fmt.Sprintf("%v", v)
-		}
-	}
-
-	if t.cmd == "" {
-		act, ok := t.data["action"]
-		if !ok {
-			return fmt.Errorf("No action specified")
-		}
-
-		parts := strings.SplitN(fmt.Sprintf("%v", act), " ", 2)
-
-		t.cmd = parts[0]
-		t.args = parts[1]
-	}
-
-	return nil
-}
-
-func (t *Task) Command() string {
-	return t.cmd
-}
-
-func (t *Task) Args() string {
-	return t.args
-}
-
-func (t *Task) Name() string {
-	return t.data["name"].(string)
-}
-
-func (t *Task) When() string {
-	if v, ok := t.data["when"]; ok {
-		return v.(string)
-	}
-
-	return ""
-}
-
-func (t *Task) Notify() []string {
-	var v interface{}
-	var ok bool
-
-	if v, ok = t.data["notify"]; !ok {
-		return nil
-	}
-
-	var list []interface{}
-
-	if list, ok = v.([]interface{}); !ok {
-		return nil
-	}
-
-	out := make([]string, len(list))
-
-	for i, x := range list {
-		out[i] = x.(string)
-	}
-
-	return out
-}
-
-func (t *Task) Async() bool {
-	_, ok := t.data["async"]
-
-	return ok
-}
-
-type Tasks []*Task
 
 type Play struct {
 	Hosts      string
@@ -182,6 +31,8 @@ type Play struct {
 
 	HandlerDatas []TaskData `yaml:"handlers"`
 	Handlers     Tasks      `yaml:"-"`
+
+	baseDir string
 }
 
 type Playbook []*Play
@@ -195,9 +46,17 @@ func LoadPlaybook(path string) (Playbook, error) {
 		return nil, err
 	}
 
+	baseDir, err := filepath.Abs(filepath.Dir(path))
+
+	if err != nil {
+		return nil, err
+	}
+
 	err = goyaml.Unmarshal(data, &p)
 
 	for _, play := range p {
+		play.baseDir = baseDir
+
 		tasks := make(Tasks, len(play.TaskDatas))
 
 		for idx, data := range play.TaskDatas {
@@ -239,7 +98,7 @@ func (p Playbook) Run(env *Environment) error {
 func (play *Play) loadVarsFile(file string, pe *PlayEnv) error {
 	var fv Vars
 
-	data, err := ioutil.ReadFile(path.Join("test", file))
+	data, err := ioutil.ReadFile(path.Join(play.baseDir, file))
 
 	if err != nil {
 		return err
@@ -277,7 +136,7 @@ func (play *Play) Run(env *Environment) error {
 					continue
 				}
 
-				epath := path.Join("test", exp)
+				epath := path.Join(play.baseDir, exp)
 
 				if _, err := os.Stat(epath); err == nil {
 					err = play.loadVarsFile(exp, pe)
