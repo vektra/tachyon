@@ -1,6 +1,6 @@
 ## tachyon
 
-Tachyon is an experimental port of ansible to golang.
+Tachyon is an experimental configuration management tool inspired by ansible implemented in golang.
 
 #### Ok.. why?
 
