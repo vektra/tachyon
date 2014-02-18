@@ -1,6 +1,6 @@
 ## tachyon
 
-Tachyon is an experimental port of anible to golang.
+Tachyon is an experimental port of ansible to golang.
 
 #### Ok.. why?
 
