@@ -1,123 +1,123 @@
 package tachyon
 
 import (
-  "bufio"
-  "github.com/flynn/go-shlex"
-  "io"
-  "os"
-  "os/exec"
+	"bufio"
+	"github.com/flynn/go-shlex"
+	"io"
+	"os"
+	"os/exec"
 )
 
 func setupNiceIO(c *exec.Cmd) error {
-  stdout, err := c.StdoutPipe()
+	stdout, err := c.StdoutPipe()
 
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
-  go func() {
-    defer stdout.Close()
+	go func() {
+		defer stdout.Close()
 
-    prefix := []byte(`| `)
-    buf := bufio.NewReader(stdout)
+		prefix := []byte(`| `)
+		buf := bufio.NewReader(stdout)
 
-    for {
-      line, err := buf.ReadSlice('\n')
+		for {
+			line, err := buf.ReadSlice('\n')
 
-      if err != nil {
-        break
-      }
+			if err != nil {
+				break
+			}
 
-      os.Stdout.Write(prefix)
-      os.Stdout.Write(line)
-    }
-  }()
+			os.Stdout.Write(prefix)
+			os.Stdout.Write(line)
+		}
+	}()
 
-  stderr, err := c.StderrPipe()
+	stderr, err := c.StderrPipe()
 
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
-  go func() {
-    defer stderr.Close()
+	go func() {
+		defer stderr.Close()
 
-    prefix := []byte(`| `)
-    buf := bufio.NewReader(stderr)
+		prefix := []byte(`| `)
+		buf := bufio.NewReader(stderr)
 
-    for {
-      line, err := buf.ReadSlice('\n')
+		for {
+			line, err := buf.ReadSlice('\n')
 
-      if err != nil {
-        break
-      }
+			if err != nil {
+				break
+			}
 
-      os.Stdout.Write(prefix)
-      os.Stdout.Write(line)
-    }
-  }()
+			os.Stdout.Write(prefix)
+			os.Stdout.Write(line)
+		}
+	}()
 
-  return nil
+	return nil
 }
 
-type CommandCmd struct {}
+type CommandCmd struct{}
 
 func (cmd *CommandCmd) Run(env *Environment, pe *PlayEnv, args string) error {
-  parts, err := shlex.Split(args)
+	parts, err := shlex.Split(args)
 
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
-  c := exec.Command(parts[0], parts[1:]...)
-  if env.ShowCommandOutput {
-    setupNiceIO(c)
-  }
+	c := exec.Command(parts[0], parts[1:]...)
+	if env.ShowCommandOutput {
+		setupNiceIO(c)
+	}
 
-  return c.Run()
+	return c.Run()
 }
 
-type ShellCmd struct {}
+type ShellCmd struct{}
 
 func (cmd *ShellCmd) Run(env *Environment, pe *PlayEnv, args string) error {
-  c := exec.Command("sh", "-c", args)
+	c := exec.Command("sh", "-c", args)
 
-  if env.ShowCommandOutput {
-    setupNiceIO(c)
-  }
+	if env.ShowCommandOutput {
+		setupNiceIO(c)
+	}
 
-  return c.Run()
+	return c.Run()
 }
 
 type CopyCmd struct {
-  Src string `tachyon:"src,required"`
-  Dest string `tachyon:"dest,required"`
+	Src  string `tachyon:"src,required"`
+	Dest string `tachyon:"dest,required"`
 }
 
 func (cmd *CopyCmd) Run(env *Environment, pe *PlayEnv, args string) error {
-  input, err := os.Open(cmd.Src)
+	input, err := os.Open(cmd.Src)
 
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
-  defer input.Close()
+	defer input.Close()
 
-  output, err := os.OpenFile(cmd.Dest, os.O_CREATE | os.O_WRONLY, 0644)
+	output, err := os.OpenFile(cmd.Dest, os.O_CREATE|os.O_WRONLY, 0644)
 
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
-  defer output.Close()
+	defer output.Close()
 
-  _, err = io.Copy(output, input)
+	_, err = io.Copy(output, input)
 
-  return err
+	return err
 }
 
 func init() {
-  RegisterCommand("command", &CommandCmd{})
-  RegisterCommand("shell", &ShellCmd{})
-  RegisterCommand("copy", &CopyCmd{})
+	RegisterCommand("command", &CommandCmd{})
+	RegisterCommand("shell", &ShellCmd{})
+	RegisterCommand("copy", &CopyCmd{})
 }

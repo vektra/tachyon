@@ -1,14 +1,14 @@
 package tachyon
 
 import (
-  "fmt"
-  "reflect"
-  "strings"
-  "sync"
+	"fmt"
+	"reflect"
+	"strings"
+	"sync"
 )
 
 type Command interface {
-  Run(env *Environment, pe *PlayEnv, args string) error
+	Run(env *Environment, pe *PlayEnv, args string) error
 }
 
 type Commands map[string]reflect.Type
@@ -18,72 +18,71 @@ var AvailableCommands Commands
 var initAvailable sync.Once
 
 func RegisterCommand(name string, cmd Command) {
-  initAvailable.Do(func() {
-    AvailableCommands = make(Commands)
-  })
+	initAvailable.Do(func() {
+		AvailableCommands = make(Commands)
+	})
 
-  ref := reflect.ValueOf(cmd)
-  e := ref.Elem()
+	ref := reflect.ValueOf(cmd)
+	e := ref.Elem()
 
-  AvailableCommands[name] = e.Type()
+	AvailableCommands[name] = e.Type()
 }
 
 func (env *Environment) MakeCommand(task *Task, pe *PlayEnv, args string) (Command, error) {
-  name := task.Command()
+	name := task.Command()
 
-  t, ok := AvailableCommands[name]
+	t, ok := AvailableCommands[name]
 
-  if !ok {
-    return nil, fmt.Errorf("Unknown command: %s", name)
-  }
+	if !ok {
+		return nil, fmt.Errorf("Unknown command: %s", name)
+	}
 
-  obj := reflect.New(t)
+	obj := reflect.New(t)
 
-  sm, err := env.ParseSimpleMap(args, pe)
+	sm, err := env.ParseSimpleMap(args, pe)
 
-  if err == nil {
-    for ik, iv := range task.Vars {
-      exp, err := env.ExpandVars(fmt.Sprintf("%v", iv), pe)
-      if err != nil {
-        return nil, err
-      }
+	if err == nil {
+		for ik, iv := range task.Vars {
+			exp, err := env.ExpandVars(fmt.Sprintf("%v", iv), pe)
+			if err != nil {
+				return nil, err
+			}
 
-      sm[ik] = exp
-    }
+			sm[ik] = exp
+		}
 
-    e := obj.Elem()
+		e := obj.Elem()
 
-    for i := 0; i < t.NumField(); i++ {
-      f := t.Field(i)
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
 
-      name := strings.ToLower(f.Name)
-      required := false
+			name := strings.ToLower(f.Name)
+			required := false
 
-      parts := strings.Split(f.Tag.Get("tachyon"),",")
+			parts := strings.Split(f.Tag.Get("tachyon"), ",")
 
-      switch len(parts) {
-      case 0:
-        // nothing
-      case 1:
-        name = parts[0]
-      case 2:
-        name = parts[0]
-        switch parts[1] {
-        case "required":
-          required = true
-        default:
-          return nil, fmt.Errorf("Unsupported tag flag: %s", parts[1])
-        }
-      }
+			switch len(parts) {
+			case 0:
+				// nothing
+			case 1:
+				name = parts[0]
+			case 2:
+				name = parts[0]
+				switch parts[1] {
+				case "required":
+					required = true
+				default:
+					return nil, fmt.Errorf("Unsupported tag flag: %s", parts[1])
+				}
+			}
 
-      if val, ok := sm[name]; ok {
-        e.Field(i).Set(reflect.ValueOf(val))
-      } else if required {
-        return nil, fmt.Errorf("Missing value for %s", f.Name)
-      }
-    }
-  }
+			if val, ok := sm[name]; ok {
+				e.Field(i).Set(reflect.ValueOf(val))
+			} else if required {
+				return nil, fmt.Errorf("Missing value for %s", f.Name)
+			}
+		}
+	}
 
-  return obj.Interface().(Command), nil
+	return obj.Interface().(Command), nil
 }
-
