@@ -24,6 +24,9 @@
   - name: test basic success command 2
     action: command true
 
+  - name: test keyed command syntax
+    command: true
+
   - name: test basic shell, plus two ways to dereference a variable
     action: shell echo {{port}}
 
@@ -39,6 +42,11 @@
     action: copy src=test/sample dest=/tmp/ansible_test_data_copy.out
     notify:
     - on change 1
+
+  - name: test copy 2
+    copy:
+      src: test/sample
+      dest: /tmp/tachyon_test_data_copy.out
 
 # there should be various poll events within the range
 

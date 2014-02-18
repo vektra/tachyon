@@ -70,7 +70,9 @@ func (cmd *CommandCmd) Run(env *Environment, pe *PlayEnv, args string) error {
   }
 
   c := exec.Command(parts[0], parts[1:]...)
-  setupNiceIO(c)
+  if env.ShowCommandOutput {
+    setupNiceIO(c)
+  }
 
   return c.Run()
 }
@@ -79,33 +81,21 @@ type ShellCmd struct {}
 
 func (cmd *ShellCmd) Run(env *Environment, pe *PlayEnv, args string) error {
   c := exec.Command("sh", "-c", args)
-  setupNiceIO(c)
+
+  if env.ShowCommandOutput {
+    setupNiceIO(c)
+  }
 
   return c.Run()
 }
 
-type CopyCmd struct {}
+type CopyCmd struct {
+  Src string `tachyon:"src,required"`
+  Dest string `tachyon:"dest,required"`
+}
 
 func (cmd *CopyCmd) Run(env *Environment, pe *PlayEnv, args string) error {
-  sm, err := env.ParseSimpleMap(args, pe)
-
-  if err != nil {
-    return err
-  }
-
-  var src string
-  var dest string
-  var ok bool
-
-  if src, ok = sm["src"]; !ok {
-    return missingValue("src")
-  }
-
-  if dest, ok = sm["dest"]; !ok {
-    return missingValue("dest")
-  }
-
-  input, err := os.Open(src)
+  input, err := os.Open(cmd.Src)
 
   if err != nil {
     return err
@@ -113,7 +103,7 @@ func (cmd *CopyCmd) Run(env *Environment, pe *PlayEnv, args string) error {
 
   defer input.Close()
 
-  output, err := os.OpenFile(dest, os.O_CREATE | os.O_WRONLY, 0644)
+  output, err := os.OpenFile(cmd.Dest, os.O_CREATE | os.O_WRONLY, 0644)
 
   if err != nil {
     return err

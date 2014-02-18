@@ -53,15 +53,7 @@ func TestSimplePlaybook(t *testing.T) {
     t.Errorf("Failed to decode the proper number of tasks: %d", len(tasks))
   }
 
-  if tasks[2].Action() != "shell echo {{port}}" {
-    t.Errorf("Failed to decode templating in action: %#v", tasks[3].Action)
-  }
-
-  env := &Environment{}
-
-  err = p.Run(env)
-
-  if err != nil {
-    t.Errorf("Error running playbook: %s", err)
+  if tasks[3].Args() != "echo {{port}}" {
+    t.Errorf("Failed to decode templating in action: %#v", tasks[3].Args())
   }
 }

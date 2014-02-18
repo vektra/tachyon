@@ -7,6 +7,7 @@ import (
   "launchpad.net/goyaml"
   "os"
   "path"
+  "reflect"
   "strings"
   "sync"
 )
@@ -66,12 +67,64 @@ func (pe *PlayEnv) AsyncChannel() chan *AsyncAction {
   return pe.async
 }
 
+type strmap map[string]interface{}
+
 type Task struct {
   data TaskData
+  cmd string
+  args string
+  Vars strmap
 }
 
-func (t *Task) Action() string {
-  return t.data["action"].(string)
+var cOptions = []string { "name", "action", "notify", "async", "poll",
+                          "when" }
+
+func (t *Task) Init() error {
+  t.Vars = make(strmap)
+
+  for k, v := range t.data {
+    found := false
+
+    for _, i := range cOptions {
+      if k == i {
+        found = true
+        break
+      }
+    }
+
+    if !found {
+      t.cmd = k
+      if m, ok := v.(map[interface{}]interface{}); ok {
+        for ik, iv := range m {
+          t.Vars[fmt.Sprintf("%v", ik)] = iv
+        }
+      }
+
+      t.args = fmt.Sprintf("%v", v)
+    }
+  }
+
+  if t.cmd == "" {
+    act, ok := t.data["action"]
+    if !ok {
+      return fmt.Errorf("No action specified")
+    }
+
+    parts := strings.SplitN(fmt.Sprintf("%v", act), " ", 2)
+
+    t.cmd = parts[0]
+    t.args = parts[1]
+  }
+
+  return nil
+}
+
+func (t *Task) Command() string {
+  return t.cmd
+}
+
+func (t *Task) Args() string {
+  return t.args
 }
 
 func (t *Task) Name() string {
@@ -148,7 +201,10 @@ func LoadPlaybook(path string) (Playbook, error) {
     tasks := make(Tasks, len(play.TaskDatas))
 
     for idx, data := range play.TaskDatas {
-      tasks[idx] = &Task { data }
+      task := &Task { data: data }
+      task.Init()
+
+      tasks[idx] = task
     }
 
     play.Tasks = tasks
@@ -156,7 +212,10 @@ func LoadPlaybook(path string) (Playbook, error) {
     tasks = make(Tasks, len(play.HandlerDatas))
 
     for idx, data := range play.HandlerDatas {
-      tasks[idx] = &Task { data }
+      task := &Task { data: data }
+      task.Init()
+
+      tasks[idx] = task
     }
 
     play.Handlers = tasks
@@ -196,6 +255,8 @@ func (play *Play) loadVarsFile(file string, pe *PlayEnv) error {
 }
 
 func (play *Play) Run(env *Environment) error {
+  fmt.Printf("== tasks\n")
+
   pe := &PlayEnv { Vars: make(Vars), lispScope: lisp.NewScope() }
   pe.Init()
 
@@ -239,8 +300,10 @@ func (play *Play) Run(env *Environment) error {
     }
   }
 
-  fmt.Printf("! Waiting on all tasks to finish...\n")
+  fmt.Printf("== Waiting on all tasks to finish...\n")
   pe.wait.Wait()
+
+  fmt.Printf("== Running any handlers\n")
 
   for _, task := range play.Handlers {
     if pe.ShouldRunHandler(task.Name()) {
@@ -277,22 +340,28 @@ func (task *Task) Run(env *Environment, pe *PlayEnv) error {
     }
   }
 
-  fmt.Printf("- %s\n", task.Name())
-
-  act := task.Action()
-
-  parts := strings.SplitN(act, " ", 2)
-
-  cmd := env.FindCommand(parts[0])
-
-  if cmd == nil {
-    return fmt.Errorf("Unknown command: %s", parts[0])
-  }
-
-  str, err := env.ExpandVars(parts[1], pe)
+  str, err := env.ExpandVars(task.Args(), pe)
 
   if err != nil {
     return err
+  }
+
+  cmd, err := env.MakeCommand(task, pe, str)
+
+  if err != nil {
+    return err
+  }
+
+  if task.Async() {
+    fmt.Printf("- %s &\n", task.Name())
+  } else {
+    fmt.Printf("- %s\n", task.Name())
+  }
+
+  if reflect.TypeOf(cmd).Elem().NumField() == 0 {
+    fmt.Printf("  - %s: %s\n", task.Command(), str)
+  } else {
+    fmt.Printf("  - %#v\n  - %s: %s\n", cmd, task.Command(), str)
   }
 
   if task.Async() {

@@ -9,11 +9,7 @@ import (
 )
 
 type Environment struct {
-
-}
-
-func (env *Environment) FindCommand(name string) Command {
-  return AvailableCommands[name]
+  ShowCommandOutput bool
 }
 
 var cTemplateStart = []byte(`{{`)
