@@ -12,11 +12,11 @@ import (
 type Environment struct {
 	ShowCommandOutput bool
 
-  report Reporter
+	report Reporter
 }
 
 func (e *Environment) Init() {
-  e.report = sCLIReporter
+	e.report = sCLIReporter
 }
 
 var cTemplateStart = []byte(`{{`)
@@ -210,4 +210,24 @@ func (pe *PlayEnv) ShouldRunHandler(name string) bool {
 
 func (pe *PlayEnv) AsyncChannel() chan *AsyncAction {
 	return pe.async
+}
+
+func (pe *PlayEnv) ImportVars(vars Vars) {
+	for k, v := range vars {
+		pe.Set(k, v)
+	}
+}
+
+func (pe *PlayEnv) ImportVarsFile(path string) error {
+	var fv Vars
+
+	err := yamlFile(path, &fv)
+
+	if err != nil {
+		return err
+	}
+
+	pe.ImportVars(fv)
+
+	return nil
 }
