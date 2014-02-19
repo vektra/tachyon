@@ -11,6 +11,12 @@ import (
 
 type Environment struct {
 	ShowCommandOutput bool
+
+  report Reporter
+}
+
+func (e *Environment) Init() {
+  e.report = sCLIReporter
 }
 
 var cTemplateStart = []byte(`{{`)

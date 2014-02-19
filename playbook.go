@@ -1,14 +1,12 @@
 package tachyon
 
 import (
-	"fmt"
 	"github.com/vektra/tachyon/lisp"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 )
 
 type Vars map[string]interface{}
@@ -114,7 +112,7 @@ func (play *Play) loadVarsFile(file string, pe *PlayEnv) error {
 }
 
 func (play *Play) Run(env *Environment) error {
-	fmt.Printf("== tasks\n")
+	env.report.StartTasks(play)
 
 	pe := &PlayEnv{Vars: make(Vars), lispScope: lisp.NewScope()}
 	pe.Init()
@@ -159,10 +157,11 @@ func (play *Play) Run(env *Environment) error {
 		}
 	}
 
-	fmt.Printf("== Waiting on all tasks to finish...\n")
+	env.report.FinishTasks(play)
+
 	pe.wait.Wait()
 
-	fmt.Printf("== Running any handlers\n")
+	env.report.StartHandlers(play)
 
 	for _, task := range play.Handlers {
 		if pe.ShouldRunHandler(task.Name()) {
@@ -173,6 +172,8 @@ func (play *Play) Run(env *Environment) error {
 			}
 		}
 	}
+
+	env.report.FinishHandlers(play)
 
 	return nil
 }
@@ -211,17 +212,7 @@ func (task *Task) Run(env *Environment, pe *PlayEnv) error {
 		return err
 	}
 
-	if task.Async() {
-		fmt.Printf("- %s &\n", task.Name())
-	} else {
-		fmt.Printf("- %s\n", task.Name())
-	}
-
-	if reflect.TypeOf(cmd).Elem().NumField() == 0 {
-		fmt.Printf("  - %s: %s\n", task.Command(), str)
-	} else {
-		fmt.Printf("  - %#v\n  - %s: %s\n", cmd, task.Command(), str)
-	}
+	env.report.StartTask(task, cmd, str)
 
 	if task.Async() {
 		asyncAction := &AsyncAction{Task: task}
@@ -234,6 +225,8 @@ func (task *Task) Run(env *Environment, pe *PlayEnv) error {
 	} else {
 		// fmt.Printf("Run %s => %s\n", parts[0], str)
 		err = cmd.Run(env, pe, str)
+
+		env.report.FinishTask(task, false)
 
 		if err == nil {
 			for _, x := range task.Notify() {
