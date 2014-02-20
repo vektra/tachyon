@@ -90,7 +90,7 @@ func (play *Play) Run(env *Environment) error {
 	env.report.StartTasks(play)
 
 	pe := &PlayEnv{Vars: make(Vars), lispScope: lisp.NewScope()}
-	pe.Init()
+	pe.Init(env)
 
 	pe.ImportVars(play.Vars)
 
@@ -101,7 +101,7 @@ func (play *Play) Run(env *Environment) error {
 			break
 		case []interface{}:
 			for _, ent := range file {
-				exp, err := env.ExpandVars(ent.(string), pe)
+				exp, err := pe.ExpandVars(ent.(string))
 
 				if err != nil {
 					continue
@@ -162,7 +162,7 @@ func boolify(str string) bool {
 
 func (task *Task) Run(env *Environment, pe *PlayEnv) error {
 	if when := task.When(); when != "" {
-		when, err := env.ExpandVars(when, pe)
+		when, err := pe.ExpandVars(when)
 
 		if err != nil {
 			return err
@@ -173,31 +173,31 @@ func (task *Task) Run(env *Environment, pe *PlayEnv) error {
 		}
 	}
 
-	str, err := env.ExpandVars(task.Args(), pe)
+	str, err := pe.ExpandVars(task.Args())
 
 	if err != nil {
 		return err
 	}
 
-	cmd, err := env.MakeCommand(task, pe, str)
+	cmd, err := pe.MakeCommand(task, str)
 
 	if err != nil {
 		return err
 	}
 
-	env.report.StartTask(task, cmd, str)
+	pe.report.StartTask(task, cmd, str)
 
 	if task.Async() {
 		asyncAction := &AsyncAction{Task: task}
 		asyncAction.Init(pe)
 
 		go func() {
-			asyncAction.Finish(cmd.Run(env, pe, str))
+			asyncAction.Finish(cmd.Run(pe, str))
 		}()
 	} else {
-		err = cmd.Run(env, pe, str)
+		err = cmd.Run(pe, str)
 
-		env.report.FinishTask(task, false)
+		pe.report.FinishTask(task, false)
 
 		if err == nil {
 			for _, x := range task.Notify() {

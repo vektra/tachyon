@@ -9,10 +9,13 @@ import (
 	"sync"
 )
 
-type Environment struct {
+type Config struct {
 	ShowCommandOutput bool
+}
 
+type Environment struct {
 	report Reporter
+	config Config
 }
 
 func (e *Environment) Init() {
@@ -27,7 +30,77 @@ var cExprEnd = []byte(`)`)
 var eUnclosedTemplate = errors.New("Unclosed template")
 var eUnclosedExpr = errors.New("Unclosed lisp expression")
 
-func (env *Environment) expandTemplates(args string, pe *PlayEnv) (string, error) {
+type PlayEnv struct {
+	Vars      Vars
+	lispScope *lisp.Scope
+	to_notify map[string]struct{}
+	async     chan *AsyncAction
+	wait      sync.WaitGroup
+	report    Reporter
+	config    Config
+}
+
+func (pe *PlayEnv) Init(env *Environment) {
+	pe.to_notify = make(map[string]struct{})
+	pe.lispScope.AddEnv()
+	pe.async = make(chan *AsyncAction)
+	pe.report = env.report
+	pe.config = env.config
+
+	go pe.handleAsync()
+}
+
+func (pe *PlayEnv) Set(key string, val interface{}) {
+	pe.Vars[key] = val
+
+	switch lv := val.(type) {
+	case int64:
+		pe.lispScope.Set(key, lisp.NumberValue(lv))
+	default:
+		pe.lispScope.Set(key, lisp.StringValue(fmt.Sprintf("%s", lv)))
+	}
+}
+
+func (pe *PlayEnv) Get(key string) (interface{}, bool) {
+	v, ok := pe.Vars[key]
+
+	return v, ok
+}
+
+func (pe *PlayEnv) AddNotify(n string) {
+	pe.to_notify[n] = struct{}{}
+}
+
+func (pe *PlayEnv) ShouldRunHandler(name string) bool {
+	_, ok := pe.to_notify[name]
+
+	return ok
+}
+
+func (pe *PlayEnv) AsyncChannel() chan *AsyncAction {
+	return pe.async
+}
+
+func (pe *PlayEnv) ImportVars(vars Vars) {
+	for k, v := range vars {
+		pe.Set(k, v)
+	}
+}
+
+func (pe *PlayEnv) ImportVarsFile(path string) error {
+	var fv Vars
+
+	err := yamlFile(path, &fv)
+
+	if err != nil {
+		return err
+	}
+
+	pe.ImportVars(fv)
+
+	return nil
+}
+func (pe *PlayEnv) expandTemplates(args string) (string, error) {
 	a := []byte(args)
 
 	var buf bytes.Buffer
@@ -91,8 +164,8 @@ func findExprClose(buf []byte) int {
 
 type SimpleMap map[string]string
 
-func (env *Environment) ParseSimpleMap(args string, pe *PlayEnv) (SimpleMap, error) {
-	args, err := env.ExpandVars(args, pe)
+func (pe *PlayEnv) ParseSimpleMap(args string) (SimpleMap, error) {
+	args, err := pe.ExpandVars(args)
 
 	if err != nil {
 		return nil, err
@@ -119,8 +192,8 @@ func missingValue(key string) error {
 	return fmt.Errorf("Missing value for key '%s'", key)
 }
 
-func (env *Environment) ExpandVars(args string, pe *PlayEnv) (string, error) {
-	args, err := env.expandTemplates(args, pe)
+func (pe *PlayEnv) ExpandVars(args string) (string, error) {
+	args, err := pe.expandTemplates(args)
 
 	if err != nil {
 		return "", err
@@ -163,71 +236,4 @@ func (env *Environment) ExpandVars(args string, pe *PlayEnv) (string, error) {
 	}
 
 	return buf.String(), nil
-}
-
-type PlayEnv struct {
-	Vars      Vars
-	lispScope *lisp.Scope
-	to_notify map[string]struct{}
-	async     chan *AsyncAction
-	wait      sync.WaitGroup
-}
-
-func (pe *PlayEnv) Init() {
-	pe.to_notify = make(map[string]struct{})
-	pe.lispScope.AddEnv()
-	pe.async = make(chan *AsyncAction)
-
-	go pe.handleAsync()
-}
-
-func (pe *PlayEnv) Set(key string, val interface{}) {
-	pe.Vars[key] = val
-
-	switch lv := val.(type) {
-	case int64:
-		pe.lispScope.Set(key, lisp.NumberValue(lv))
-	default:
-		pe.lispScope.Set(key, lisp.StringValue(fmt.Sprintf("%s", lv)))
-	}
-}
-
-func (pe *PlayEnv) Get(key string) (interface{}, bool) {
-	v, ok := pe.Vars[key]
-
-	return v, ok
-}
-
-func (pe *PlayEnv) AddNotify(n string) {
-	pe.to_notify[n] = struct{}{}
-}
-
-func (pe *PlayEnv) ShouldRunHandler(name string) bool {
-	_, ok := pe.to_notify[name]
-
-	return ok
-}
-
-func (pe *PlayEnv) AsyncChannel() chan *AsyncAction {
-	return pe.async
-}
-
-func (pe *PlayEnv) ImportVars(vars Vars) {
-	for k, v := range vars {
-		pe.Set(k, v)
-	}
-}
-
-func (pe *PlayEnv) ImportVarsFile(path string) error {
-	var fv Vars
-
-	err := yamlFile(path, &fv)
-
-	if err != nil {
-		return err
-	}
-
-	pe.ImportVars(fv)
-
-	return nil
 }

@@ -8,7 +8,7 @@ import (
 )
 
 type Command interface {
-	Run(env *Environment, pe *PlayEnv, args string) error
+	Run(pe *PlayEnv, args string) error
 }
 
 type Commands map[string]reflect.Type
@@ -28,7 +28,7 @@ func RegisterCommand(name string, cmd Command) {
 	AvailableCommands[name] = e.Type()
 }
 
-func (env *Environment) MakeCommand(task *Task, pe *PlayEnv, args string) (Command, error) {
+func (pe *PlayEnv) MakeCommand(task *Task, args string) (Command, error) {
 	name := task.Command()
 
 	t, ok := AvailableCommands[name]
@@ -39,11 +39,11 @@ func (env *Environment) MakeCommand(task *Task, pe *PlayEnv, args string) (Comma
 
 	obj := reflect.New(t)
 
-	sm, err := env.ParseSimpleMap(args, pe)
+	sm, err := pe.ParseSimpleMap(args)
 
 	if err == nil {
 		for ik, iv := range task.Vars {
-			exp, err := env.ExpandVars(fmt.Sprintf("%v", iv), pe)
+			exp, err := pe.ExpandVars(fmt.Sprintf("%v", iv))
 			if err != nil {
 				return nil, err
 			}

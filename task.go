@@ -14,6 +14,8 @@ type Task struct {
 	Vars strmap
 }
 
+type Tasks []*Task
+
 var cOptions = []string{"name", "action", "notify", "async", "poll",
 	"when"}
 
@@ -105,5 +107,3 @@ func (t *Task) Async() bool {
 
 	return ok
 }
-
-type Tasks []*Task
