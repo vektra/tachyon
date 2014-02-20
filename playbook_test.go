@@ -28,7 +28,7 @@ func TestSimplePlaybook(t *testing.T) {
 	}
 
 	if vars["port"] != 5150 {
-		t.Errorf("Unable to decode numeric var")
+		t.Errorf("Unable to decode numeric var: %#v", vars["port"])
 	}
 
 	if len(x.VarsFiles) != 2 {

@@ -1,6 +1,8 @@
 package tachyon
 
 import (
+	"errors"
+	"fmt"
 	"github.com/vektra/tachyon/lisp"
 	"os"
 	"path"
@@ -18,17 +20,11 @@ type TaskData map[string]interface{}
 type Play struct {
 	Hosts      string
 	Connection string
-
-	Vars      Vars
-	VarsFiles VarsFiles `yaml:"vars_files"`
-
-	TaskDatas []TaskData `yaml:"tasks"`
-	Tasks     Tasks      `yaml:"-"`
-
-	HandlerDatas []TaskData `yaml:"handlers"`
-	Handlers     Tasks      `yaml:"-"`
-
-	baseDir string
+	Vars       Vars
+	VarsFiles  VarsFiles
+	Tasks      Tasks
+	Handlers   Tasks
+	baseDir    string
 }
 
 type Playbook []*Play
@@ -46,28 +42,153 @@ func processTasks(datas []TaskData) Tasks {
 	return tasks
 }
 
-func LoadPlaybook(path string) (Playbook, error) {
+var eInvalidPlaybook = errors.New("Invalid playbook yaml")
+
+func LoadPlaybook(fpath string) (Playbook, error) {
+	baseDir, err := filepath.Abs(filepath.Dir(fpath))
+
+	if err != nil {
+		return nil, err
+	}
+
+	var seq []map[string]interface{}
+
+	err = yamlFile(fpath, &seq)
+
+	if err != nil {
+		return nil, err
+	}
+
 	var p Playbook
 
-	err := yamlFile(path, &p)
+	for _, item := range seq {
+		if x, ok := item["include"]; ok {
+			var sub Playbook
+			if spath, ok := x.(string); ok {
+				sub, err = LoadPlaybook(path.Join(baseDir, spath))
 
-	if err != nil {
-		return nil, err
-	}
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, eInvalidPlaybook
+			}
 
-	baseDir, err := filepath.Abs(filepath.Dir(path))
+			p = append(p, sub...)
+		} else if _, ok := item["hosts"]; ok {
+			play, err := parsePlay(baseDir, item)
 
-	if err != nil {
-		return nil, err
-	}
+			if err != nil {
+				return nil, err
+			}
 
-	for _, play := range p {
-		play.baseDir = baseDir
-		play.Tasks = processTasks(play.TaskDatas)
-		play.Handlers = processTasks(play.HandlerDatas)
+			p = append(p, play)
+		}
 	}
 
 	return p, nil
+}
+
+func formatError(where string) error {
+	return fmt.Errorf("Invalid playbook yaml: %s", where)
+}
+
+func castTasks(x interface{}) ([]TaskData, error) {
+	if xs, ok := x.([]interface{}); ok {
+		var tds []TaskData
+
+		for _, x := range xs {
+			if am, ok := x.(map[interface{}]interface{}); ok {
+				td := make(TaskData)
+
+				for k, v := range am {
+					if sk, ok := k.(string); ok {
+						td[sk] = v
+					} else {
+						return nil, formatError("non-string key in task")
+					}
+				}
+
+				tds = append(tds, td)
+			} else {
+				return nil, formatError("task was not a map")
+			}
+		}
+
+		return tds, nil
+	} else {
+		return nil, formatError("tasks not the right format")
+	}
+}
+
+func parsePlay(dir string, m map[string]interface{}) (*Play, error) {
+	var play Play
+
+	if x, ok := m["hosts"]; ok {
+		if str, ok := x.(string); ok {
+			play.Hosts = str
+		} else {
+			return nil, formatError("hosts not a string")
+		}
+	} else {
+		return nil, formatError("hosts missing")
+	}
+
+	if x, ok := m["vars"]; ok {
+		if im, ok := x.(map[interface{}]interface{}); ok {
+			v := make(Vars)
+
+			for ik, iv := range im {
+				if sk, ok := ik.(string); ok {
+					v[sk] = iv
+				} else {
+					return nil, formatError("vars key not a string")
+				}
+			}
+
+			play.Vars = v
+		} else {
+			return nil, formatError("vars not a map")
+		}
+	}
+
+	var tasks []TaskData
+
+	if x, ok := m["tasks"]; ok {
+		tds, err := castTasks(x)
+
+		if err != nil {
+			return nil, err
+		}
+
+		tasks = tds
+	}
+
+	var handlers []TaskData
+
+	if x, ok := m["handlers"]; ok {
+		tds, err := castTasks(x)
+
+		if err != nil {
+			return nil, err
+		}
+
+		handlers = tds
+	}
+
+	if x, ok := m["vars_files"]; ok {
+		if vf, ok := x.([]interface{}); ok {
+			play.VarsFiles = vf
+		} else {
+			return nil, formatError("vars_files not the right format")
+		}
+	}
+
+	play.baseDir = dir
+	play.Tasks = processTasks(tasks)
+	play.Handlers = processTasks(handlers)
+
+	return &play, nil
 }
 
 func (p Playbook) Run(env *Environment) error {
