@@ -48,6 +48,9 @@
       src: test/sample
       dest: /tmp/tachyon_test_data_copy.out
 
+  - name: test dollar expansion
+    action: shell echo $duck
+
 # there should be various poll events within the range
 
   - name: async poll test

@@ -7,6 +7,7 @@ import (
 	"github.com/vektra/tachyon/lisp"
 	"strings"
 	"sync"
+	"unicode"
 )
 
 type Config struct {
@@ -20,6 +21,7 @@ type Environment struct {
 
 func (e *Environment) Init() {
 	e.report = sCLIReporter
+	e.config.ShowCommandOutput = true
 }
 
 var cTemplateStart = []byte(`{{`)
@@ -192,6 +194,22 @@ func missingValue(key string) error {
 	return fmt.Errorf("Missing value for key '%s'", key)
 }
 
+func varChar(r rune) bool {
+	fmt.Printf("at %s\n", string(r))
+	if unicode.IsLetter(r) {
+		return true
+	}
+	if unicode.IsDigit(r) {
+		return true
+	}
+	if r == '_' {
+		return true
+	}
+	return false
+}
+
+var cDollar = []byte(`$`)
+
 func (pe *PlayEnv) ExpandVars(args string) (string, error) {
 	args, err := pe.expandTemplates(args)
 
@@ -204,35 +222,59 @@ func (pe *PlayEnv) ExpandVars(args string) (string, error) {
 	var buf bytes.Buffer
 
 	for {
-		idx := bytes.Index(a, cExprStart)
+		idx := bytes.Index(a, cDollar)
 
 		if idx == -1 {
 			buf.Write(a)
 			break
+		} else if a[idx+1] == '(' {
+			buf.Write(a[:idx])
+
+			in := a[idx+1:]
+
+			fin := findExprClose(in)
+
+			if fin == -1 {
+				return "", eUnclosedExpr
+			}
+
+			sexp := in[:fin+1]
+
+			val, err := lisp.EvalString(string(sexp), pe.lispScope)
+
+			if err != nil {
+				return "", err
+			}
+
+			// fmt.Printf("%s => %s\n", string(sexp), val.Inspect())
+
+			buf.WriteString(val.String())
+			a = in[fin+1:]
+		} else {
+			buf.Write(a[:idx])
+
+			in := a[idx+1:]
+
+			fin := 0
+
+			for fin < len(in) {
+				if !varChar(rune(in[fin])) {
+					break
+				}
+				fin++
+			}
+
+			if val, ok := pe.Get(string(in[:fin])); ok {
+				switch val := val.(type) {
+				case int64, int:
+					buf.WriteString(fmt.Sprintf("%d", val))
+				default:
+					buf.WriteString(fmt.Sprintf("%s", val))
+				}
+
+				a = in[fin:]
+			}
 		}
-
-		buf.Write(a[:idx])
-
-		in := a[idx+1:]
-
-		fin := findExprClose(in)
-
-		if fin == -1 {
-			return "", eUnclosedExpr
-		}
-
-		sexp := in[:fin+1]
-
-		val, err := lisp.EvalString(string(sexp), pe.lispScope)
-
-		if err != nil {
-			return "", err
-		}
-
-		// fmt.Printf("%s => %s\n", string(sexp), val.Inspect())
-
-		buf.WriteString(val.String())
-		a = in[fin+1:]
 	}
 
 	return buf.String(), nil
