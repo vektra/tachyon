@@ -210,7 +210,11 @@ func (play *Play) path(file string) string {
 func (play *Play) Run(env *Environment) error {
 	env.report.StartTasks(play)
 
-	pe := &PlayEnv{Vars: make(Vars), lispScope: lisp.NewScope()}
+	pe := &PlayEnv{
+		Vars:      make(Vars),
+		lispScope: lisp.NewNestedScope(env.lispScope),
+	}
+
 	pe.Init(env)
 
 	pe.ImportVars(play.Vars)

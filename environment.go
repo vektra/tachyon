@@ -10,18 +10,20 @@ import (
 	"unicode"
 )
 
-type Config struct {
-	ShowCommandOutput bool
-}
-
 type Environment struct {
-	report Reporter
-	config Config
+	parent    *Environment
+	Vars      Vars
+	lispScope *lisp.Scope
+	report    Reporter
+	config    *Config
 }
 
-func (e *Environment) Init() {
+func (e *Environment) Init(cfg *Config) {
 	e.report = sCLIReporter
-	e.config.ShowCommandOutput = true
+	e.Vars = make(Vars)
+	e.lispScope = lisp.NewScope()
+	e.lispScope.AddEnv()
+	e.config = cfg
 }
 
 var cTemplateStart = []byte(`{{`)
@@ -33,16 +35,18 @@ var eUnclosedTemplate = errors.New("Unclosed template")
 var eUnclosedExpr = errors.New("Unclosed lisp expression")
 
 type PlayEnv struct {
+	env       *Environment
 	Vars      Vars
 	lispScope *lisp.Scope
 	to_notify map[string]struct{}
 	async     chan *AsyncAction
 	wait      sync.WaitGroup
 	report    Reporter
-	config    Config
+	config    *Config
 }
 
 func (pe *PlayEnv) Init(env *Environment) {
+	pe.env = env
 	pe.to_notify = make(map[string]struct{})
 	pe.lispScope.AddEnv()
 	pe.async = make(chan *AsyncAction)
@@ -50,6 +54,17 @@ func (pe *PlayEnv) Init(env *Environment) {
 	pe.config = env.config
 
 	go pe.handleAsync()
+}
+
+func (e *Environment) Set(key string, val interface{}) {
+	e.Vars[key] = val
+
+	switch lv := val.(type) {
+	case int64:
+		e.lispScope.Set(key, lisp.NumberValue(lv))
+	default:
+		e.lispScope.Set(key, lisp.StringValue(fmt.Sprintf("%s", lv)))
+	}
 }
 
 func (pe *PlayEnv) Set(key string, val interface{}) {
@@ -63,8 +78,22 @@ func (pe *PlayEnv) Set(key string, val interface{}) {
 	}
 }
 
+func (env *Environment) Get(key string) (interface{}, bool) {
+	v, ok := env.Vars[key]
+
+	if !ok && env.parent != nil {
+		v, ok = env.parent.Get(key)
+	}
+
+	return v, ok
+}
+
 func (pe *PlayEnv) Get(key string) (interface{}, bool) {
 	v, ok := pe.Vars[key]
+
+	if !ok {
+		v, ok = pe.env.Get(key)
+	}
 
 	return v, ok
 }
@@ -195,7 +224,6 @@ func missingValue(key string) error {
 }
 
 func varChar(r rune) bool {
-	fmt.Printf("at %s\n", string(r))
 	if unicode.IsLetter(r) {
 		return true
 	}
@@ -273,6 +301,8 @@ func (pe *PlayEnv) ExpandVars(args string) (string, error) {
 				}
 
 				a = in[fin:]
+			} else {
+				return "", fmt.Errorf("Undefined variable: %s", string(in[:fin]))
 			}
 		}
 	}

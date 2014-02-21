@@ -51,6 +51,8 @@
   - name: test dollar expansion
     action: shell echo $duck
 
+  - name: test outer vars
+    action: shell echo $user
 # there should be various poll events within the range
 
   - name: async poll test
