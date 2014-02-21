@@ -27,7 +27,10 @@ type Play struct {
 	baseDir    string
 }
 
-type Playbook []*Play
+type Playbook struct {
+	Plays []*Play
+	Env   *Environment
+}
 
 func processTasks(datas []TaskData) Tasks {
 	tasks := make(Tasks, len(datas))
@@ -44,7 +47,7 @@ func processTasks(datas []TaskData) Tasks {
 
 var eInvalidPlaybook = errors.New("Invalid playbook yaml")
 
-func LoadPlaybook(fpath string) (Playbook, error) {
+func LoadPlaybook(fpath string, parent *Environment) (*Playbook, error) {
 	baseDir, err := filepath.Abs(filepath.Dir(fpath))
 
 	if err != nil {
@@ -59,13 +62,16 @@ func LoadPlaybook(fpath string) (Playbook, error) {
 		return nil, err
 	}
 
-	var p Playbook
+	env := &Environment{}
+	env.InitNested(parent)
+
+	p := &Playbook{Env: env}
 
 	for _, item := range seq {
 		if x, ok := item["include"]; ok {
-			var sub Playbook
+			var sub *Playbook
 			if spath, ok := x.(string); ok {
-				sub, err = LoadPlaybook(path.Join(baseDir, spath))
+				sub, err = LoadPlaybook(path.Join(baseDir, spath), env)
 
 				if err != nil {
 					return nil, err
@@ -74,7 +80,7 @@ func LoadPlaybook(fpath string) (Playbook, error) {
 				return nil, eInvalidPlaybook
 			}
 
-			p = append(p, sub...)
+			p.Plays = append(p.Plays, sub.Plays...)
 		} else if _, ok := item["hosts"]; ok {
 			play, err := parsePlay(baseDir, item)
 
@@ -82,7 +88,7 @@ func LoadPlaybook(fpath string) (Playbook, error) {
 				return nil, err
 			}
 
-			p = append(p, play)
+			p.Plays = append(p.Plays, play)
 		}
 	}
 
@@ -191,8 +197,8 @@ func parsePlay(dir string, m map[string]interface{}) (*Play, error) {
 	return &play, nil
 }
 
-func (p Playbook) Run(env *Environment) error {
-	for _, play := range p {
+func (p *Playbook) Run(env *Environment) error {
+	for _, play := range p.Plays {
 		err := play.Run(env)
 
 		if err != nil {

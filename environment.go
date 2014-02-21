@@ -26,6 +26,15 @@ func (e *Environment) Init(cfg *Config) {
 	e.config = cfg
 }
 
+func (e *Environment) InitNested(parent *Environment) {
+	e.report = sCLIReporter
+	e.Vars = make(Vars)
+	e.lispScope = lisp.NewScope()
+	e.lispScope.AddEnv()
+	e.parent = parent
+	e.config = parent.config
+}
+
 var cTemplateStart = []byte(`{{`)
 var cTemplateEnd = []byte(`}}`)
 var cExprStart = []byte(`$(`)

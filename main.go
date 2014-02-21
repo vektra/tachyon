@@ -25,14 +25,14 @@ func Main(args []string) int {
 
 	cfg := &Config{ShowCommandOutput: opts.ShowOutput}
 
-	playbook, err := LoadPlaybook(args[1])
-
 	env := &Environment{}
 	env.Init(cfg)
 
 	for k, v := range opts.Vars {
 		env.Set(k, v)
 	}
+
+	playbook, err := LoadPlaybook(args[1], env)
 
 	err = playbook.Run(env)
 

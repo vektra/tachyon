@@ -5,17 +5,18 @@ import (
 )
 
 func TestSimplePlaybook(t *testing.T) {
-	p, err := LoadPlaybook("test/playbook1.yml")
+	env := &Environment{}
+	p, err := LoadPlaybook("test/playbook1.yml", env)
 
 	if err != nil {
 		panic(err)
 	}
 
-	if len(p) != 1 {
-		t.Fatalf("Didn't load 1 playbook, loaded: %d", len(p))
+	if len(p.Plays) != 1 {
+		t.Fatalf("Didn't load 1 playbook, loaded: %d", len(p.Plays))
 	}
 
-	x := p[0]
+	x := p.Plays[0]
 
 	if x.Hosts != "all" {
 		t.Errorf("Hosts not all: was %s", x.Hosts)
