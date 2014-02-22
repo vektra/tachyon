@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -80,4 +81,31 @@ func ParseSimpleMap(s Scope, args string) (SimpleMap, error) {
 	}
 
 	return sm, nil
+}
+
+func split2(s, sep string) (string, string, bool) {
+	parts := strings.SplitN(s, sep, 2)
+
+	if len(parts) == 0 {
+		return "", "", false
+	} else if len(parts) == 1 {
+		return parts[0], "", false
+	} else {
+		return parts[0], parts[1], true
+	}
+}
+
+func inferString(s string) interface{} {
+	switch strings.ToLower(s) {
+	case "true", "yes":
+		return true
+	case "false", "no":
+		return false
+	}
+
+	if i, err := strconv.ParseInt(s, 0, 0); err == nil {
+		return i
+	}
+
+	return s
 }

@@ -34,7 +34,7 @@ func Main(args []string) int {
 	env := &Environment{}
 	env.Init(ns, cfg)
 
-	playbook, err := LoadPlaybook(args[1], env)
+	playbook, err := LoadPlaybook(args[1], ns, env)
 
 	err = playbook.Run(env)
 

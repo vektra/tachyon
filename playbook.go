@@ -45,10 +45,12 @@ func processTasks(datas []TaskData) Tasks {
 
 var eInvalidPlaybook = errors.New("Invalid playbook yaml")
 
-func LoadPlaybook(fpath string, env *Environment) (*Playbook, error) {
+func LoadPlaybook(fpath string, s Scope, env *Environment) (*Playbook, error) {
 	baseDir, err := filepath.Abs(filepath.Dir(fpath))
 
-	env.Vars.Set("playbook_dir", baseDir)
+	pbs := NewNestedScope(s)
+
+	pbs.Set("playbook_dir", baseDir)
 
 	if err != nil {
 		return nil, err
@@ -79,21 +81,43 @@ func LoadPlaybook(fpath string, env *Environment) (*Playbook, error) {
 				spath = parts[0]
 			}
 
-			sub, err = LoadPlaybook(path.Join(baseDir, spath), env)
+			// Make a new scope and put the vars into it. The subplays
+			// will use this scope as their parent.
+			ns := NewNestedScope(pbs)
+
+			if vars, ok := item["vars"]; ok {
+				ns.addVars(vars)
+			}
+
+			for _, tok := range parts[1:] {
+				if k, v, ok := split2(tok, "="); ok {
+					ns.Set(k, inferString(v))
+				}
+			}
+
+			var us *NestedScope
+
+			if ns.Empty() {
+				us = pbs
+			} else {
+				us = ns
+			}
+
+			sub, err = LoadPlaybook(path.Join(baseDir, spath), us, env)
 
 			if err != nil {
 				return nil, err
 			}
 
-			if vars, ok := item["vars"]; ok {
+			if !ns.Empty() {
 				for _, play := range sub.Plays {
-					play.addVars(vars)
+					play.Vars = SpliceOverrides(play.Vars, ns)
 				}
 			}
 
 			p.Plays = append(p.Plays, sub.Plays...)
-		} else if _, ok := item["hosts"]; ok {
-			play, err := parsePlay(env.Vars, baseDir, item)
+		} else {
+			play, err := parsePlay(pbs, baseDir, item)
 
 			if err != nil {
 				return nil, err
@@ -216,25 +240,6 @@ func (p *Playbook) Run(env *Environment) error {
 	}
 
 	return nil
-}
-
-func (play *Play) addMapVars(mv map[interface{}]interface{}) {
-	for k, v := range mv {
-		if sk, ok := k.(string); ok {
-			play.Vars.Set(sk, v)
-		}
-	}
-}
-
-func (play *Play) addVars(vars interface{}) {
-	switch mv := vars.(type) {
-	case map[interface{}]interface{}:
-		play.addMapVars(mv)
-	case []interface{}:
-		for _, i := range mv {
-			play.addVars(i)
-		}
-	}
 }
 
 func (play *Play) path(file string) string {

@@ -6,7 +6,7 @@ import (
 
 func TestSimplePlaybook(t *testing.T) {
 	env := &Environment{Vars: NewNestedScope(nil)}
-	p, err := LoadPlaybook("test/playbook1.yml", env)
+	p, err := LoadPlaybook("test/playbook1.yml", env.Vars, env)
 
 	if err != nil {
 		panic(err)
