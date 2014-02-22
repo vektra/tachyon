@@ -52,7 +52,7 @@
     action: shell echo $duck
 
   - name: test outer vars
-    action: shell echo $user
+    action: shell echo $(or :user "unknown")
 # there should be various poll events within the range
 
   - name: async poll test

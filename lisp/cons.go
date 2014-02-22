@@ -34,6 +34,8 @@ func (cons Cons) Execute(scope ScopedVars) (Value, error) {
 		return cons.quoteForm(scope)
 	case "if":
 		return cons.ifForm(scope)
+	case "or":
+		return cons.orForm(scope)
 	case "set!":
 		return cons.setForm(scope)
 	case "define":
@@ -163,6 +165,38 @@ func (cons Cons) ifForm(scope ScopedVars) (val Value, err error) {
 			}
 		}
 	}
+	return
+}
+
+func (cons Cons) orForm(scope ScopedVars) (val Value, err error) {
+	expr := cons.Vector()
+	val = Nil
+	if len(expr) < 1 {
+		err = fmt.Errorf("Ill-formed special form: %v", expr)
+	} else {
+		var r Value
+
+		for i := 1; i < len(expr); i++ {
+			r, err = expr[i].Eval(scope)
+			if err != nil {
+				return
+			}
+
+			if r.typ == symbolValue {
+				var ok bool
+
+				val, ok = scope.Get(r.String())
+
+				if ok {
+					return
+				}
+			} else {
+				val = r
+				return
+			}
+		}
+	}
+
 	return
 }
 

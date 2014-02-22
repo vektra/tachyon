@@ -162,8 +162,6 @@ func ExpandVars(s Scope, args string) (string, error) {
 				return "", err
 			}
 
-			// fmt.Printf("%s => %s\n", string(sexp), val.Inspect())
-
 			buf.WriteString(val.String())
 			a = in[fin+1:]
 		} else {
