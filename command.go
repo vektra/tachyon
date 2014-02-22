@@ -39,11 +39,11 @@ func (pe *PlayEnv) MakeCommand(task *Task, args string) (Command, error) {
 
 	obj := reflect.New(t)
 
-	sm, err := pe.ParseSimpleMap(args)
+	sm, err := ParseSimpleMap(pe.Vars, args)
 
 	if err == nil {
 		for ik, iv := range task.Vars {
-			exp, err := pe.ExpandVars(fmt.Sprintf("%v", iv))
+			exp, err := ExpandVars(pe.Vars, fmt.Sprintf("%v", iv))
 			if err != nil {
 				return nil, err
 			}

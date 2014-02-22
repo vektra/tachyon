@@ -7,6 +7,12 @@ func init() {
 	scope.AddEnv()
 }
 
+type ScopedVars interface {
+	Get(key string) (Value, bool)
+	Set(key string, val Value)
+	Create(key string, val Value)
+}
+
 type Env map[string]Value
 
 type Scope struct {

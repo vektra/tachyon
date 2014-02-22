@@ -9,6 +9,10 @@ type Value struct {
 	val interface{}
 }
 
+func (v Value) Interface() interface{} {
+	return v.val
+}
+
 var Nil = Value{nilValue, nil}
 var False = Value{symbolValue, "false"}
 var True = Value{symbolValue, "true"}
@@ -26,14 +30,14 @@ const (
 )
 
 func NumberValue(n int64) Value {
-  return Value { typ: numberValue, val: n }
+	return Value{typ: numberValue, val: n}
 }
 
 func StringValue(s string) Value {
-  return Value { typ: stringValue, val: s }
+	return Value{typ: stringValue, val: s}
 }
 
-func (v Value) Eval(scope *Scope) (Value, error) {
+func (v Value) Eval(scope ScopedVars) (Value, error) {
 	switch v.typ {
 	case consValue:
 		return v.Cons().Execute(scope)

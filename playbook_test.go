@@ -5,7 +5,7 @@ import (
 )
 
 func TestSimplePlaybook(t *testing.T) {
-	env := &Environment{}
+	env := &Environment{Vars: NewNestedScope(nil)}
 	p, err := LoadPlaybook("test/playbook1.yml", env)
 
 	if err != nil {
@@ -24,12 +24,24 @@ func TestSimplePlaybook(t *testing.T) {
 
 	vars := x.Vars
 
-	if vars["answer"] != "Wuh, I think so" {
-		t.Errorf("Unable to decode string var: %#v", vars["answer"])
+	a, ok := vars.Get("answer")
+
+	if !ok {
+		t.Fatalf("No var 'answer'")
 	}
 
-	if vars["port"] != 5150 {
-		t.Errorf("Unable to decode numeric var: %#v", vars["port"])
+	if a != "Wuh, I think so" {
+		t.Errorf("Unable to decode string var: %#v", a)
+	}
+
+	a, ok = vars.Get("port")
+
+	if !ok {
+		t.Fatalf("No var 'port'")
+	}
+
+	if a != 5150 {
+		t.Errorf("Unable to decode numeric var: %#v", a)
 	}
 
 	if len(x.VarsFiles) != 2 {

@@ -3,13 +3,11 @@ package tachyon
 import (
 	"errors"
 	"fmt"
-	"github.com/vektra/tachyon/lisp"
+	"github.com/flynn/go-shlex"
 	"os"
 	"path"
 	"path/filepath"
 )
-
-type Vars map[string]interface{}
 
 type VarsFiles []interface{}
 
@@ -20,7 +18,7 @@ type TaskData map[string]interface{}
 type Play struct {
 	Hosts      string
 	Connection string
-	Vars       Vars
+	Vars       Scope
 	VarsFiles  VarsFiles
 	Tasks      Tasks
 	Handlers   Tasks
@@ -47,8 +45,10 @@ func processTasks(datas []TaskData) Tasks {
 
 var eInvalidPlaybook = errors.New("Invalid playbook yaml")
 
-func LoadPlaybook(fpath string, parent *Environment) (*Playbook, error) {
+func LoadPlaybook(fpath string, env *Environment) (*Playbook, error) {
 	baseDir, err := filepath.Abs(filepath.Dir(fpath))
+
+	env.Vars.Set("playbook_dir", baseDir)
 
 	if err != nil {
 		return nil, err
@@ -62,27 +62,38 @@ func LoadPlaybook(fpath string, parent *Environment) (*Playbook, error) {
 		return nil, err
 	}
 
-	env := &Environment{}
-	env.InitNested(parent)
-
 	p := &Playbook{Env: env}
 
 	for _, item := range seq {
 		if x, ok := item["include"]; ok {
 			var sub *Playbook
-			if spath, ok := x.(string); ok {
-				sub, err = LoadPlaybook(path.Join(baseDir, spath), env)
 
-				if err != nil {
-					return nil, err
-				}
-			} else {
+			spath, ok := x.(string)
+
+			if !ok {
 				return nil, eInvalidPlaybook
+			}
+
+			parts, err := shlex.Split(spath)
+			if err == nil {
+				spath = parts[0]
+			}
+
+			sub, err = LoadPlaybook(path.Join(baseDir, spath), env)
+
+			if err != nil {
+				return nil, err
+			}
+
+			if vars, ok := item["vars"]; ok {
+				for _, play := range sub.Plays {
+					play.addVars(vars)
+				}
 			}
 
 			p.Plays = append(p.Plays, sub.Plays...)
 		} else if _, ok := item["hosts"]; ok {
-			play, err := parsePlay(baseDir, item)
+			play, err := parsePlay(env.Vars, baseDir, item)
 
 			if err != nil {
 				return nil, err
@@ -127,7 +138,7 @@ func castTasks(x interface{}) ([]TaskData, error) {
 	}
 }
 
-func parsePlay(dir string, m map[string]interface{}) (*Play, error) {
+func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
 	var play Play
 
 	if x, ok := m["hosts"]; ok {
@@ -140,19 +151,17 @@ func parsePlay(dir string, m map[string]interface{}) (*Play, error) {
 		return nil, formatError("hosts missing")
 	}
 
+	play.Vars = NewNestedScope(s)
+
 	if x, ok := m["vars"]; ok {
 		if im, ok := x.(map[interface{}]interface{}); ok {
-			v := make(Vars)
-
 			for ik, iv := range im {
 				if sk, ok := ik.(string); ok {
-					v[sk] = iv
+					play.Vars.Set(sk, iv)
 				} else {
 					return nil, formatError("vars key not a string")
 				}
 			}
-
-			play.Vars = v
 		} else {
 			return nil, formatError("vars not a map")
 		}
@@ -209,6 +218,25 @@ func (p *Playbook) Run(env *Environment) error {
 	return nil
 }
 
+func (play *Play) addMapVars(mv map[interface{}]interface{}) {
+	for k, v := range mv {
+		if sk, ok := k.(string); ok {
+			play.Vars.Set(sk, v)
+		}
+	}
+}
+
+func (play *Play) addVars(vars interface{}) {
+	switch mv := vars.(type) {
+	case map[interface{}]interface{}:
+		play.addMapVars(mv)
+	case []interface{}:
+		for _, i := range mv {
+			play.addVars(i)
+		}
+	}
+}
+
 func (play *Play) path(file string) string {
 	return path.Join(play.baseDir, file)
 }
@@ -216,23 +244,17 @@ func (play *Play) path(file string) string {
 func (play *Play) Run(env *Environment) error {
 	env.report.StartTasks(play)
 
-	pe := &PlayEnv{
-		Vars:      make(Vars),
-		lispScope: lisp.NewNestedScope(env.lispScope),
-	}
-
-	pe.Init(env)
-
-	pe.ImportVars(play.Vars)
+	pe := &PlayEnv{}
+	pe.Init(play, env)
 
 	for _, file := range play.VarsFiles {
 		switch file := file.(type) {
 		case string:
-			pe.ImportVarsFile(play.path(file))
+			ImportVarsFile(pe.Vars, play.path(file))
 			break
 		case []interface{}:
 			for _, ent := range file {
-				exp, err := pe.ExpandVars(ent.(string))
+				exp, err := ExpandVars(pe.Vars, ent.(string))
 
 				if err != nil {
 					continue
@@ -241,7 +263,7 @@ func (play *Play) Run(env *Environment) error {
 				epath := play.path(exp)
 
 				if _, err := os.Stat(epath); err == nil {
-					err = pe.ImportVarsFile(epath)
+					err = ImportVarsFile(pe.Vars, epath)
 
 					if err != nil {
 						return err
@@ -293,7 +315,7 @@ func boolify(str string) bool {
 
 func (task *Task) Run(env *Environment, pe *PlayEnv) error {
 	if when := task.When(); when != "" {
-		when, err := pe.ExpandVars(when)
+		when, err := ExpandVars(pe.Vars, when)
 
 		if err != nil {
 			return err
@@ -304,7 +326,7 @@ func (task *Task) Run(env *Environment, pe *PlayEnv) error {
 		}
 	}
 
-	str, err := pe.ExpandVars(task.Args())
+	str, err := ExpandVars(pe.Vars, task.Args())
 
 	if err != nil {
 		return err

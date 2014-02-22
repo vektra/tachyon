@@ -25,12 +25,14 @@ func Main(args []string) int {
 
 	cfg := &Config{ShowCommandOutput: opts.ShowOutput}
 
-	env := &Environment{}
-	env.Init(cfg)
+	ns := NewNestedScope(nil)
 
 	for k, v := range opts.Vars {
-		env.Set(k, v)
+		ns.Set(k, v)
 	}
+
+	env := &Environment{}
+	env.Init(ns, cfg)
 
 	playbook, err := LoadPlaybook(args[1], env)
 
