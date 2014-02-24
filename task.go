@@ -33,6 +33,10 @@ func (t *Task) Init() error {
 		}
 
 		if !found {
+			if t.cmd != "" {
+				return fmt.Errorf("Duplicate command, already: %s", t.cmd)
+			}
+
 			t.cmd = k
 			if m, ok := v.(map[interface{}]interface{}); ok {
 				for ik, iv := range m {
@@ -53,7 +57,10 @@ func (t *Task) Init() error {
 		parts := strings.SplitN(fmt.Sprintf("%v", act), " ", 2)
 
 		t.cmd = parts[0]
-		t.args = parts[1]
+
+		if len(parts) == 2 {
+			t.args = parts[1]
+		}
 	}
 
 	return nil
