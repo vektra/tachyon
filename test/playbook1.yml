@@ -1,5 +1,9 @@
 # extremely simple test of the most basic of playbook engine/functions
 ---
+- include: incplaybook.yml sub1=from_include
+  vars:
+    sub2: "from include"
+
 - hosts: all
   connection: local
 
@@ -46,7 +50,7 @@
   - name: test copy 2
     copy:
       src: test/sample
-      dest: /tmp/tachyon_test_data_copy.out
+      dest: /tmp/tachyon_test_data_copy2.out
 
   - name: test dollar expansion
     action: shell echo $duck
@@ -100,5 +104,3 @@
 
   - name: on change 3
     action: shell echo 'if you see this, this is wrong'
-
-

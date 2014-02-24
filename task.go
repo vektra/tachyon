@@ -38,9 +38,9 @@ func (t *Task) Init() error {
 				for ik, iv := range m {
 					t.Vars[fmt.Sprintf("%v", ik)] = iv
 				}
+			} else {
+				t.args = fmt.Sprintf("%v", v)
 			}
-
-			t.args = fmt.Sprintf("%v", v)
 		}
 	}
 

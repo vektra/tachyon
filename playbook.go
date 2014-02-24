@@ -26,8 +26,36 @@ type Play struct {
 }
 
 type Playbook struct {
-	Plays []*Play
-	Env   *Environment
+	Path    string
+	baseDir string
+	Plays   []*Play
+	Env     *Environment
+	Vars    *NestedScope
+}
+
+func NewPlaybook(env *Environment, p string) (*Playbook, error) {
+	baseDir, err := filepath.Abs(filepath.Dir(p))
+	if err != nil {
+		return nil, err
+	}
+
+	pb := &Playbook{
+		Path:    p,
+		baseDir: baseDir,
+		Env:     env,
+		Vars:    NewNestedScope(env.Vars),
+	}
+
+	pb.Vars.Set("playbook_dir", baseDir)
+
+	plays, err := pb.LoadPlays(p, pb.Vars)
+	if err != nil {
+		return nil, err
+	}
+
+	pb.Plays = plays
+
+	return pb, nil
 }
 
 func processTasks(datas []TaskData) Tasks {
@@ -45,89 +73,68 @@ func processTasks(datas []TaskData) Tasks {
 
 var eInvalidPlaybook = errors.New("Invalid playbook yaml")
 
-func LoadPlaybook(fpath string, s Scope, env *Environment) (*Playbook, error) {
-	baseDir, err := filepath.Abs(filepath.Dir(fpath))
-
-	pbs := NewNestedScope(s)
-
-	pbs.Set("playbook_dir", baseDir)
-
-	if err != nil {
-		return nil, err
-	}
-
+func (pb *Playbook) LoadPlays(fpath string, s Scope) ([]*Play, error) {
 	var seq []map[string]interface{}
 
-	err = yamlFile(fpath, &seq)
+	var plays []*Play
+
+	err := yamlFile(fpath, &seq)
 
 	if err != nil {
 		return nil, err
 	}
-
-	p := &Playbook{Env: env}
 
 	for _, item := range seq {
 		if x, ok := item["include"]; ok {
-			var sub *Playbook
-
 			spath, ok := x.(string)
 
 			if !ok {
 				return nil, eInvalidPlaybook
 			}
 
-			parts, err := shlex.Split(spath)
-			if err == nil {
-				spath = parts[0]
-			}
-
 			// Make a new scope and put the vars into it. The subplays
 			// will use this scope as their parent.
-			ns := NewNestedScope(pbs)
+			ns := NewNestedScope(s)
 
 			if vars, ok := item["vars"]; ok {
 				ns.addVars(vars)
 			}
 
-			for _, tok := range parts[1:] {
-				if k, v, ok := split2(tok, "="); ok {
-					ns.Set(k, inferString(v))
+			parts, err := shlex.Split(spath)
+			if err == nil {
+				spath = parts[0]
+				for _, tok := range parts[1:] {
+					if k, v, ok := split2(tok, "="); ok {
+						ns.Set(k, inferString(v))
+					}
 				}
 			}
 
-			var us *NestedScope
-
-			if ns.Empty() {
-				us = pbs
-			} else {
-				us = ns
-			}
-
-			sub, err = LoadPlaybook(path.Join(baseDir, spath), us, env)
+			sub, err := pb.LoadPlays(path.Join(pb.baseDir, spath), ns.Flatten())
 
 			if err != nil {
 				return nil, err
 			}
 
 			if !ns.Empty() {
-				for _, play := range sub.Plays {
+				for _, play := range sub {
 					play.Vars = SpliceOverrides(play.Vars, ns)
 				}
 			}
 
-			p.Plays = append(p.Plays, sub.Plays...)
+			plays = append(plays, sub...)
 		} else {
-			play, err := parsePlay(pbs, baseDir, item)
+			play, err := parsePlay(s, pb.baseDir, item)
 
 			if err != nil {
 				return nil, err
 			}
 
-			p.Plays = append(p.Plays, play)
+			plays = append(plays, play)
 		}
 	}
 
-	return p, nil
+	return plays, nil
 }
 
 func formatError(where string) error {
@@ -191,6 +198,44 @@ func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
 		}
 	}
 
+	if x, ok := m["vars_files"]; ok {
+		if vf, ok := x.([]interface{}); ok {
+			play.VarsFiles = vf
+		} else {
+			return nil, formatError("vars_files not the right format")
+		}
+	}
+
+	play.baseDir = dir
+
+	for _, file := range play.VarsFiles {
+		switch file := file.(type) {
+		case string:
+			ImportVarsFile(play.Vars, play.path(file))
+			break
+		case []interface{}:
+			for _, ent := range file {
+				exp, err := ExpandVars(play.Vars, ent.(string))
+
+				if err != nil {
+					continue
+				}
+
+				epath := play.path(exp)
+
+				if _, err := os.Stat(epath); err == nil {
+					err = ImportVarsFile(play.Vars, epath)
+
+					if err != nil {
+						return nil, err
+					}
+
+					break
+				}
+			}
+		}
+	}
+
 	var tasks []TaskData
 
 	if x, ok := m["tasks"]; ok {
@@ -215,98 +260,14 @@ func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
 		handlers = tds
 	}
 
-	if x, ok := m["vars_files"]; ok {
-		if vf, ok := x.([]interface{}); ok {
-			play.VarsFiles = vf
-		} else {
-			return nil, formatError("vars_files not the right format")
-		}
-	}
-
-	play.baseDir = dir
 	play.Tasks = processTasks(tasks)
 	play.Handlers = processTasks(handlers)
 
 	return &play, nil
 }
 
-func (p *Playbook) Run(env *Environment) error {
-	for _, play := range p.Plays {
-		err := play.Run(env)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (play *Play) path(file string) string {
 	return path.Join(play.baseDir, file)
-}
-
-func (play *Play) Run(env *Environment) error {
-	env.report.StartTasks(play)
-
-	pe := &PlayEnv{}
-	pe.Init(play, env)
-
-	for _, file := range play.VarsFiles {
-		switch file := file.(type) {
-		case string:
-			ImportVarsFile(pe.Vars, play.path(file))
-			break
-		case []interface{}:
-			for _, ent := range file {
-				exp, err := ExpandVars(pe.Vars, ent.(string))
-
-				if err != nil {
-					continue
-				}
-
-				epath := play.path(exp)
-
-				if _, err := os.Stat(epath); err == nil {
-					err = ImportVarsFile(pe.Vars, epath)
-
-					if err != nil {
-						return err
-					}
-
-					break
-				}
-			}
-		}
-	}
-
-	for _, task := range play.Tasks {
-		err := task.Run(env, pe)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	env.report.FinishTasks(play)
-
-	pe.wait.Wait()
-
-	env.report.StartHandlers(play)
-
-	for _, task := range play.Handlers {
-		if pe.ShouldRunHandler(task.Name()) {
-			err := task.Run(env, pe)
-
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	env.report.FinishHandlers(play)
-
-	return nil
 }
 
 func boolify(str string) bool {
@@ -316,53 +277,4 @@ func boolify(str string) bool {
 	default:
 		return true
 	}
-}
-
-func (task *Task) Run(env *Environment, pe *PlayEnv) error {
-	if when := task.When(); when != "" {
-		when, err := ExpandVars(pe.Vars, when)
-
-		if err != nil {
-			return err
-		}
-
-		if !boolify(when) {
-			return nil
-		}
-	}
-
-	str, err := ExpandVars(pe.Vars, task.Args())
-
-	if err != nil {
-		return err
-	}
-
-	cmd, err := pe.MakeCommand(task, str)
-
-	if err != nil {
-		return err
-	}
-
-	pe.report.StartTask(task, cmd, str)
-
-	if task.Async() {
-		asyncAction := &AsyncAction{Task: task}
-		asyncAction.Init(pe)
-
-		go func() {
-			asyncAction.Finish(cmd.Run(pe, str))
-		}()
-	} else {
-		err = cmd.Run(pe, str)
-
-		pe.report.FinishTask(task, false)
-
-		if err == nil {
-			for _, x := range task.Notify() {
-				pe.AddNotify(x)
-			}
-		}
-	}
-
-	return err
 }

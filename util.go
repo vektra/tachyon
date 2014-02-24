@@ -2,6 +2,7 @@ package tachyon
 
 import (
 	"fmt"
+	"github.com/flynn/go-shlex"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"reflect"
@@ -68,7 +69,11 @@ func ParseSimpleMap(s Scope, args string) (SimpleMap, error) {
 
 	sm := make(SimpleMap)
 
-	parts := strings.Split(args, " ")
+	parts, err := shlex.Split(args)
+
+	if err != nil {
+		return nil, err
+	}
 
 	for _, part := range parts {
 		ec := strings.SplitN(part, "=", 2)

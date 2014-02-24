@@ -6,17 +6,17 @@ import (
 
 func TestSimplePlaybook(t *testing.T) {
 	env := &Environment{Vars: NewNestedScope(nil)}
-	p, err := LoadPlaybook("test/playbook1.yml", env.Vars, env)
+	p, err := NewPlaybook(env, "test/playbook1.yml")
 
 	if err != nil {
 		panic(err)
 	}
 
-	if len(p.Plays) != 1 {
-		t.Fatalf("Didn't load 1 playbook, loaded: %d", len(p.Plays))
+	if len(p.Plays) != 2 {
+		t.Fatalf("Didn't load 2 playbooks, loaded: %d", len(p.Plays))
 	}
 
-	x := p.Plays[0]
+	x := p.Plays[1]
 
 	if x.Hosts != "all" {
 		t.Errorf("Hosts not all: was %s", x.Hosts)

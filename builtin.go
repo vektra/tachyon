@@ -62,7 +62,7 @@ func setupNiceIO(c *exec.Cmd) error {
 
 type CommandCmd struct{}
 
-func (cmd *CommandCmd) Run(pe *PlayEnv, args string) error {
+func (cmd *CommandCmd) Run(env *Environment, args string) error {
 	parts, err := shlex.Split(args)
 
 	if err != nil {
@@ -70,7 +70,7 @@ func (cmd *CommandCmd) Run(pe *PlayEnv, args string) error {
 	}
 
 	c := exec.Command(parts[0], parts[1:]...)
-	if pe.config.ShowCommandOutput {
+	if env.config.ShowCommandOutput {
 		setupNiceIO(c)
 	}
 
@@ -79,10 +79,10 @@ func (cmd *CommandCmd) Run(pe *PlayEnv, args string) error {
 
 type ShellCmd struct{}
 
-func (cmd *ShellCmd) Run(pe *PlayEnv, args string) error {
+func (cmd *ShellCmd) Run(env *Environment, args string) error {
 	c := exec.Command("sh", "-c", args)
 
-	if pe.config.ShowCommandOutput {
+	if env.config.ShowCommandOutput {
 		setupNiceIO(c)
 	}
 
@@ -94,7 +94,7 @@ type CopyCmd struct {
 	Dest string `tachyon:"dest,required"`
 }
 
-func (cmd *CopyCmd) Run(pe *PlayEnv, args string) error {
+func (cmd *CopyCmd) Run(env *Environment, args string) error {
 	input, err := os.Open(cmd.Src)
 
 	if err != nil {

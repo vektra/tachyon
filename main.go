@@ -34,9 +34,10 @@ func Main(args []string) int {
 	env := &Environment{}
 	env.Init(ns, cfg)
 
-	playbook, err := LoadPlaybook(args[1], ns, env)
+	playbook, err := NewPlaybook(env, args[1])
 
-	err = playbook.Run(env)
+	runner := NewRunner(playbook.Plays)
+	err = runner.Run(env)
 
 	if err != nil {
 		fmt.Printf("Error running playbook: %s\n", err)

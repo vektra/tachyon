@@ -6,10 +6,10 @@ import (
 )
 
 type Reporter interface {
-	StartTasks(play *Play)
-	FinishTasks(play *Play)
-	StartHandlers(play *Play)
-	FinishHandlers(play *Play)
+	StartTasks(r *Runner)
+	FinishTasks(r *Runner)
+	StartHandlers(r *Runner)
+	FinishHandlers(r *Runner)
 
 	StartTask(task *Task, cmd Command, args string)
 	FinishTask(task *Task, async bool)
@@ -19,19 +19,19 @@ type CLIReporter struct{}
 
 var sCLIReporter *CLIReporter = &CLIReporter{}
 
-func (c *CLIReporter) StartTasks(play *Play) {
+func (c *CLIReporter) StartTasks(r *Runner) {
 	fmt.Printf("== tasks\n")
 }
 
-func (c *CLIReporter) FinishTasks(play *Play) {
+func (c *CLIReporter) FinishTasks(r *Runner) {
 	fmt.Printf("== Waiting on all tasks to finish...\n")
 }
 
-func (c *CLIReporter) StartHandlers(play *Play) {
+func (c *CLIReporter) StartHandlers(r *Runner) {
 	fmt.Printf("== Running any handlers\n")
 }
 
-func (c *CLIReporter) FinishHandlers(play *Play) {}
+func (c *CLIReporter) FinishHandlers(r *Runner) {}
 
 func (c *CLIReporter) StartTask(task *Task, cmd Command, args string) {
 	if task.Async() {

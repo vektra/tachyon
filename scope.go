@@ -53,6 +53,14 @@ func (n *NestedScope) Empty() bool {
 	return len(n.Vars) == 0
 }
 
+func (n *NestedScope) Flatten() Scope {
+	if len(n.Vars) == 0 && n.Scope != nil {
+		return n.Scope
+	}
+
+	return n
+}
+
 func (n *NestedScope) addMapVars(mv map[interface{}]interface{}) {
 	for k, v := range mv {
 		if sk, ok := k.(string); ok {
@@ -70,6 +78,22 @@ func (n *NestedScope) addVars(vars interface{}) {
 			n.addVars(i)
 		}
 	}
+}
+
+func ImportVarsFile(s Scope, path string) error {
+	var fv Vars
+
+	err := yamlFile(path, &fv)
+
+	if err != nil {
+		return err
+	}
+
+	for k, v := range fv {
+		s.Set(k, v)
+	}
+
+	return nil
 }
 
 func DisplayScope(s Scope) {
