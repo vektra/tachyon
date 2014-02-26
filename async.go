@@ -7,6 +7,7 @@ import (
 type AsyncAction struct {
 	Task   *Task
 	Error  error
+	Result *Result
 	status chan *AsyncAction
 }
 
@@ -15,8 +16,9 @@ func (a *AsyncAction) Init(r *Runner) {
 	a.status = r.AsyncChannel()
 }
 
-func (a *AsyncAction) Finish(err error) {
+func (a *AsyncAction) Finish(res *Result, err error) {
 	a.Error = err
+	a.Result = res
 	a.status <- a
 }
 

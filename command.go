@@ -7,8 +7,23 @@ import (
 	"sync"
 )
 
+type ResultData map[string]interface{}
+
+type Result struct {
+	Changed bool
+	Data    ResultData
+}
+
+func WrapResult(changed bool, data ResultData) *Result {
+	return &Result{changed, data}
+}
+
+func NewResult(changed bool) *Result {
+	return &Result{changed, make(ResultData)}
+}
+
 type Command interface {
-	Run(env *Environment, args string) error
+	Run(env *Environment, args string) (*Result, error)
 }
 
 type Commands map[string]reflect.Type

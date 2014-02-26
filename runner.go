@@ -107,7 +107,7 @@ func (r *Runner) runTask(env *Environment, task *Task, s Scope) error {
 			asyncAction.Finish(cmd.Run(env, str))
 		}()
 	} else {
-		err = cmd.Run(env, str)
+		_, err := cmd.Run(env, str)
 
 		env.report.FinishTask(task, false)
 
