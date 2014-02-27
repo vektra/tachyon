@@ -92,7 +92,13 @@ func MakeCommand(s Scope, task *Task, args string) (Command, error) {
 			}
 
 			if val, ok := sm[name]; ok {
-				e.Field(i).Set(reflect.ValueOf(val))
+				ef := e.Field(i)
+
+				if _, ok := ef.Interface().(bool); ok {
+					e.Field(i).Set(reflect.ValueOf(boolify(val)))
+				} else {
+					e.Field(i).Set(reflect.ValueOf(fmt.Sprintf("%v", val)))
+				}
 			} else if required {
 				return nil, fmt.Errorf("Missing value for %s", f.Name)
 			}
