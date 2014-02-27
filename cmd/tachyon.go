@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/vektra/tachyon"
+	_ "github.com/vektra/tachyon/package"
 	"os"
 )
 
