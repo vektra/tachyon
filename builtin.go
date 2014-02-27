@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"github.com/flynn/go-shlex"
 	"io"
 	"os"
@@ -82,23 +83,24 @@ func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
 func runCmd(env *Environment, parts []string) (*Result, error) {
 	c := exec.Command(parts[0], parts[1:]...)
 
+	rc := 0
+
 	stdout, stderr, err := captureCmd(c, env.config.ShowCommandOutput)
 	if err != nil {
-		return nil, err
+		if _, ok := err.(*exec.ExitError); ok {
+			rc = 1
+		} else {
+			return nil, err
+		}
 	}
 
 	r := NewResult(true)
 
-	if c.ProcessState.Success() {
-		r.Data["rc"] = 0
-	} else {
-		r.Data["rc"] = 1
-	}
-
+	r.Data["rc"] = rc
 	r.Data["stdout"] = stdout
 	r.Data["stderr"] = stderr
 
-	return r, err
+	return r, nil
 }
 
 type CommandCmd struct{}
@@ -184,7 +186,7 @@ func (cmd *CopyCmd) Run(env *Environment, args string) (*Result, error) {
 		return WrapResult(false, rd), nil
 	}
 
-	tmp := cmd.Dest + ".tmp"
+	tmp := fmt.Sprintf("%s.tmp.%d", cmd.Dest, os.Getpid())
 
 	output, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY, 0644)
 
@@ -212,7 +214,13 @@ func (cmd *CopyCmd) Run(env *Environment, args string) (*Result, error) {
 		os.Chown(tmp, int(ostat.Uid), int(ostat.Gid))
 	}
 
-	return WrapResult(true, rd), os.Rename(tmp, dest)
+	err = os.Rename(tmp, dest)
+	if err != nil {
+		os.Remove(tmp)
+		return nil, err
+	}
+
+	return WrapResult(true, rd), nil
 }
 
 func init() {

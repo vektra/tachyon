@@ -16,6 +16,15 @@ type Task struct {
 
 type Tasks []*Task
 
+func AdhocTask(cmd, args string) *Task {
+	return &Task{
+		cmd:  cmd,
+		args: args,
+		data: TaskData{"name": "adhoc"},
+		Vars: make(strmap),
+	}
+}
+
 var cOptions = []string{"name", "action", "notify", "async", "poll",
 	"when"}
 

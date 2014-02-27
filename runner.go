@@ -72,6 +72,25 @@ func (r *Runner) Run(env *Environment) error {
 	return nil
 }
 
+func RunAdhocTask(cmd, args string) (*Result, error) {
+	env := &Environment{Vars: NewNestedScope(nil)}
+	env.config = &Config{}
+
+	task := AdhocTask(cmd, args)
+
+	str, err := ExpandVars(env.Vars, task.Args())
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := MakeCommand(env.Vars, task, str)
+	if err != nil {
+		return nil, err
+	}
+
+	return obj.Run(env, str)
+}
+
 func (r *Runner) runTask(env *Environment, task *Task, s Scope) error {
 	if when := task.When(); when != "" {
 		when, err := ExpandVars(s, when)
