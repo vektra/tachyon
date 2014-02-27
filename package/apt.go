@@ -3,6 +3,7 @@ package apt
 import (
 	"fmt"
 	"github.com/vektra/tachyon"
+	"os"
 	"os/exec"
 	"regexp"
 )
@@ -44,12 +45,31 @@ func (a *Apt) Run(env *tachyon.Environment, args string) (*tachyon.Result, error
 
 	canVer := string(res[1])
 
+	if state == "absent" {
+		rd := tachyon.ResultData{}
+
+		if curVer == "" {
+			return tachyon.WrapResult(false, rd), nil
+		}
+
+		rd["removed"] = curVer
+
+		c := exec.Command("apt-get", "remove", "-y", a.Pkg)
+		out, err = c.CombinedOutput()
+
+		if err != nil {
+			return nil, err
+		}
+
+		return tachyon.WrapResult(true, rd), nil
+	}
+
 	rd := tachyon.ResultData{
 		"installed": curVer,
 		"candidate": canVer,
 	}
 
-	if curVer == canVer {
+	if state == "present" && curVer == canVer {
 		return tachyon.WrapResult(false, rd), nil
 	}
 
@@ -58,7 +78,18 @@ func (a *Apt) Run(env *tachyon.Environment, args string) (*tachyon.Result, error
 		return tachyon.WrapResult(true, rd), nil
 	}
 
-	return nil, fmt.Errorf("not yet")
+	e := append(os.Environ(), "DEBIAN_FRONTEND=noninteractive", "DEBIAN_PRIORITY=critical")
+
+	c := exec.Command("apt-get", "install", "-y", a.Pkg)
+	c.Env = e
+	out, err = c.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+
+	rd["installed"] = canVer
+
+	return tachyon.WrapResult(true, rd), nil
 }
 
 func init() {
