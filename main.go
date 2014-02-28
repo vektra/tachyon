@@ -5,12 +5,14 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-var opts struct {
+type Options struct {
 	Vars       map[string]string `short:"s" long:"set" description:"Set a variable"`
 	ShowOutput bool              `short:"o" long:"output" description:"Show command output"`
 }
 
 func Main(args []string) int {
+	var opts Options
+
 	args, err := flags.ParseArgs(&opts, args)
 
 	if err != nil {

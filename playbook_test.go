@@ -2,6 +2,7 @@ package tachyon
 
 import (
 	"testing"
+	"time"
 )
 
 func TestSimplePlaybook(t *testing.T) {
@@ -69,4 +70,20 @@ func TestSimplePlaybook(t *testing.T) {
 	if tasks[3].Args() != "echo {{port}}" {
 		t.Errorf("Failed to decode templating in action: %#v", tasks[3].Args())
 	}
+}
+
+func TestPlaybookFutures(t *testing.T) {
+	start := time.Now()
+
+	i := Main([]string{"tachyon", "test/future.yml"})
+
+	if i != 0 {
+		t.Fatalf("Unable to load test/future.yml")
+	}
+
+	fin := time.Now()
+
+	diff := fin.Sub(start) * time.Second
+
+	t.Errorf("diff: %#v\n", diff)
 }

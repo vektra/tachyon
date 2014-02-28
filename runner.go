@@ -116,7 +116,17 @@ func (r *Runner) runTask(env *Environment, task *Task, s Scope) error {
 		return err
 	}
 
+	fs := NewFutureScope(env.Vars)
+
 	env.report.StartTask(task, cmd, str)
+
+	if name := task.Future(); name != "" {
+		future := NewFuture(func() (*Result, error) {
+			return cmd.Run(env, str)
+		})
+
+		fs.AddFuture(name, future)
+	}
 
 	if task.Async() {
 		asyncAction := &AsyncAction{Task: task}
