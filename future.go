@@ -34,6 +34,11 @@ func (f *Future) Value() (*Result, error) {
 	return f.result, f.err
 }
 
+func (f *Future) Read() interface{} {
+	f.Wait()
+	return f.result
+}
+
 type Futures map[string]*Future
 
 type FutureScope struct {
@@ -48,7 +53,7 @@ func NewFutureScope(parent Scope) *FutureScope {
 	}
 }
 
-func (fs *FutureScope) Get(key string) (interface{}, bool) {
+func (fs *FutureScope) Get(key string) (Value, bool) {
 	if v, ok := fs.futures[key]; ok {
 		return v, ok
 	}

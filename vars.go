@@ -4,7 +4,7 @@ import (
 	"strconv"
 )
 
-type Vars map[string]interface{}
+type Vars map[string]Any
 
 func (v Vars) Copy() Vars {
 	o := make(Vars)
@@ -21,9 +21,9 @@ func VarsFromStrMap(sm map[string]string) Vars {
 
 	for k, v := range sm {
 		if i, err := strconv.ParseInt(k, 0, 0); err != nil {
-			o[k] = i
+			o[k] = Any{i}
 		} else {
-			o[k] = v
+			o[k] = Any{v}
 		}
 	}
 

@@ -32,6 +32,8 @@ func (cons Cons) Execute(scope ScopedVars) (Value, error) {
 	switch cons.car.String() {
 	case "quote":
 		return cons.quoteForm(scope)
+	case "read":
+		return cons.readForm(scope)
 	case "if":
 		return cons.ifForm(scope)
 	case "or":
@@ -226,6 +228,11 @@ func (cons Cons) quoteForm(scope ScopedVars) (val Value, err error) {
 		err = fmt.Errorf("Ill-formed special form: %v", cons)
 	}
 	return
+}
+
+func (cons Cons) readForm(scope ScopedVars) (val Value, err error) {
+	val, err = cons.cdr.Cons().car.Eval(scope)
+	return val, err
 }
 
 func (cons Cons) defineForm(scope ScopedVars) (val Value, err error) {

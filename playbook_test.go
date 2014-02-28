@@ -31,7 +31,7 @@ func TestSimplePlaybook(t *testing.T) {
 		t.Fatalf("No var 'answer'")
 	}
 
-	if a != "Wuh, I think so" {
+	if a.Read() != "Wuh, I think so" {
 		t.Errorf("Unable to decode string var: %#v", a)
 	}
 
@@ -41,7 +41,7 @@ func TestSimplePlaybook(t *testing.T) {
 		t.Fatalf("No var 'port'")
 	}
 
-	if a != 5150 {
+	if a.Read() != 5150 {
 		t.Errorf("Unable to decode numeric var: %#v", a)
 	}
 
@@ -72,7 +72,7 @@ func TestSimplePlaybook(t *testing.T) {
 	}
 }
 
-func TestPlaybookFutures(t *testing.T) {
+func TestPlaybookFuturesRunInParallel(t *testing.T) {
 	start := time.Now()
 
 	i := Main([]string{"tachyon", "test/future.yml"})
@@ -85,7 +85,25 @@ func TestPlaybookFutures(t *testing.T) {
 
 	diff := float32(fin.Sub(start)) / float32(time.Second)
 
-	if diff > 5.001 || diff < 4.998 {
+	if diff > 5.01 || diff < 4.98 {
+		t.Errorf("Futures did not run in parallel: %f", diff)
+	}
+}
+
+func TestPlaybookFuturesCanBeWaitedOn(t *testing.T) {
+	start := time.Now()
+
+	i := Main([]string{"tachyon", "test/future2.yml"})
+
+	if i != 0 {
+		t.Fatalf("Unable to load test/future2.yml")
+	}
+
+	fin := time.Now()
+
+	diff := float32(fin.Sub(start)) / float32(time.Second)
+
+	if diff > 5.01 || diff < 4.98 {
 		t.Errorf("Futures did not run in parallel")
 	}
 }

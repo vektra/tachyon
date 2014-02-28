@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/vektra/tachyon/lisp"
+	"strings"
 	"unicode"
 )
 
@@ -42,7 +43,7 @@ func expandTemplates(s Scope, args string) (string, error) {
 		name := bytes.TrimSpace(in[:fin])
 
 		if val, ok := s.Get(string(name)); ok {
-			switch val := val.(type) {
+			switch val := val.Read().(type) {
 			case int64, int:
 				buf.WriteString(fmt.Sprintf("%d", val))
 			default:
@@ -91,6 +92,38 @@ func varChar(r rune) bool {
 	return false
 }
 
+func inferValue(val Value) lisp.Value {
+	switch lv := val.Read().(type) {
+	case int:
+		return lisp.NumberValue(int64(lv))
+	case int32:
+		return lisp.NumberValue(int64(lv))
+	case int64:
+		return lisp.NumberValue(lv)
+	case string:
+		return lisp.StringValue(strings.TrimSpace(lv))
+	case *Result:
+		return lisp.MapValue(&lispResult{lv})
+	default:
+	}
+
+	return lisp.StringValue(fmt.Sprintf("%s", val.Read()))
+}
+
+type lispResult struct {
+	res *Result
+}
+
+func (lr *lispResult) Get(key string) (lisp.Value, bool) {
+	v, ok := lr.res.Get(key)
+
+	if !ok {
+		return lisp.Nil, false
+	}
+
+	return inferValue(v), true
+}
+
 type lispInferredScope struct {
 	Scope Scope
 }
@@ -102,16 +135,7 @@ func (s lispInferredScope) Get(key string) (lisp.Value, bool) {
 		return lisp.Nil, false
 	}
 
-	switch lv := val.(type) {
-	case int:
-		return lisp.NumberValue(int64(lv)), true
-	case int32:
-		return lisp.NumberValue(int64(lv)), true
-	case int64:
-		return lisp.NumberValue(lv), true
-	}
-
-	return lisp.StringValue(fmt.Sprintf("%s", val)), true
+	return inferValue(val), true
 }
 
 func (s lispInferredScope) Set(key string, v lisp.Value) {
@@ -179,7 +203,7 @@ func ExpandVars(s Scope, args string) (string, error) {
 			}
 
 			if val, ok := s.Get(string(in[:fin])); ok {
-				switch val := val.(type) {
+				switch val := val.Read().(type) {
 				case int64, int:
 					buf.WriteString(fmt.Sprintf("%d", val))
 				default:

@@ -4,8 +4,20 @@ import (
 	"fmt"
 )
 
+type Value interface {
+	Read() interface{}
+}
+
+type Any struct {
+	v interface{}
+}
+
+func (a Any) Read() interface{} {
+	return a.v
+}
+
 type Scope interface {
-	Get(key string) (interface{}, bool)
+	Get(key string) (Value, bool)
 	Set(key string, val interface{})
 }
 
@@ -36,7 +48,7 @@ func SpliceOverrides(cur Scope, override *NestedScope) *NestedScope {
 	return ns
 }
 
-func (n *NestedScope) Get(key string) (v interface{}, ok bool) {
+func (n *NestedScope) Get(key string) (v Value, ok bool) {
 	v, ok = n.Vars[key]
 	if !ok && n.Scope != nil {
 		v, ok = n.Scope.Get(key)
@@ -46,7 +58,7 @@ func (n *NestedScope) Get(key string) (v interface{}, ok bool) {
 }
 
 func (n *NestedScope) Set(key string, v interface{}) {
-	n.Vars[key] = v
+	n.Vars[key] = Any{v}
 }
 
 func (n *NestedScope) Empty() bool {

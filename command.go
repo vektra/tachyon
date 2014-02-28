@@ -14,6 +14,16 @@ type Result struct {
 	Data    ResultData
 }
 
+func (r *Result) Get(key string) (Value, bool) {
+	v, ok := r.Data[key]
+
+	if !ok {
+		return nil, false
+	}
+
+	return Any{v}, true
+}
+
 func WrapResult(changed bool, data ResultData) *Result {
 	return &Result{changed, data}
 }
