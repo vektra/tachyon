@@ -83,7 +83,9 @@ func TestPlaybookFutures(t *testing.T) {
 
 	fin := time.Now()
 
-	diff := fin.Sub(start) * time.Second
+	diff := float32(fin.Sub(start)) / float32(time.Second)
 
-	t.Errorf("diff: %#v\n", diff)
+	if diff > 5.001 || diff < 4.998 {
+		t.Errorf("Futures did not run in parallel")
+	}
 }

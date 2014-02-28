@@ -41,12 +41,16 @@ func (r *Runner) Run(env *Environment) error {
 	env.report.StartTasks(r)
 
 	for _, play := range r.plays {
+		fs := NewFutureScope(play.Vars)
+
 		for _, task := range play.Tasks {
-			err := r.runTask(env, task, play.Vars)
+			err := r.runTask(env, task, fs)
 			if err != nil {
 				return err
 			}
 		}
+
+		fs.Wait()
 	}
 
 	env.report.FinishTasks(r)
@@ -56,15 +60,19 @@ func (r *Runner) Run(env *Environment) error {
 	env.report.StartHandlers(r)
 
 	for _, play := range r.plays {
+		fs := NewFutureScope(play.Vars)
+
 		for _, task := range play.Handlers {
 			if r.ShouldRunHandler(task.Name()) {
-				err := r.runTask(env, task, play.Vars)
+				err := r.runTask(env, task, fs)
 
 				if err != nil {
 					return err
 				}
 			}
 		}
+
+		fs.Wait()
 	}
 
 	env.report.FinishHandlers(r)
@@ -91,9 +99,9 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 	return obj.Run(env, str)
 }
 
-func (r *Runner) runTask(env *Environment, task *Task, s Scope) error {
+func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 	if when := task.When(); when != "" {
-		when, err := ExpandVars(s, when)
+		when, err := ExpandVars(fs, when)
 
 		if err != nil {
 			return err
@@ -104,19 +112,17 @@ func (r *Runner) runTask(env *Environment, task *Task, s Scope) error {
 		}
 	}
 
-	str, err := ExpandVars(s, task.Args())
+	str, err := ExpandVars(fs, task.Args())
 
 	if err != nil {
 		return err
 	}
 
-	cmd, err := MakeCommand(s, task, str)
+	cmd, err := MakeCommand(fs, task, str)
 
 	if err != nil {
 		return err
 	}
-
-	fs := NewFutureScope(env.Vars)
 
 	env.report.StartTask(task, cmd, str)
 
@@ -126,6 +132,8 @@ func (r *Runner) runTask(env *Environment, task *Task, s Scope) error {
 		})
 
 		fs.AddFuture(name, future)
+
+		return nil
 	}
 
 	if task.Async() {
