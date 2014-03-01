@@ -72,7 +72,7 @@ func expandTemplates(s Scope, args string) (string, error) {
 			case int64, int:
 				buf.WriteString(fmt.Sprintf("%d", val))
 			default:
-				buf.WriteString(fmt.Sprintf("%s", val))
+				buf.WriteString(strings.TrimSpace(fmt.Sprintf("%s", val)))
 			}
 
 			a = in[fin+2:]
@@ -232,7 +232,7 @@ func ExpandVars(s Scope, args string) (string, error) {
 				case int64, int:
 					buf.WriteString(fmt.Sprintf("%d", val))
 				default:
-					buf.WriteString(fmt.Sprintf("%s", val))
+					buf.WriteString(strings.TrimSpace(fmt.Sprintf("%s", val)))
 				}
 
 				a = in[fin:]

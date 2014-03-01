@@ -52,7 +52,7 @@ func (a *Apt) Run(env *tachyon.Environment, args string) (*tachyon.Result, error
 			return tachyon.WrapResult(false, rd), nil
 		}
 
-		rd["removed"] = curVer
+		rd.Set("removed", curVer)
 
 		c := exec.Command("apt-get", "remove", "-y", a.Pkg)
 		out, err = c.CombinedOutput()
@@ -64,17 +64,16 @@ func (a *Apt) Run(env *tachyon.Environment, args string) (*tachyon.Result, error
 		return tachyon.WrapResult(true, rd), nil
 	}
 
-	rd := tachyon.ResultData{
-		"installed": curVer,
-		"candidate": canVer,
-	}
+	rd := tachyon.ResultData{}
+	rd.Set("installed", curVer)
+	rd.Set("candidate", canVer)
 
 	if state == "present" && curVer == canVer {
 		return tachyon.WrapResult(false, rd), nil
 	}
 
 	if a.Dry {
-		rd["dryrun"] = true
+		rd.Set("dryrun", true)
 		return tachyon.WrapResult(true, rd), nil
 	}
 
@@ -87,7 +86,7 @@ func (a *Apt) Run(env *tachyon.Environment, args string) (*tachyon.Result, error
 		return nil, err
 	}
 
-	rd["installed"] = canVer
+	rd.Set("installed", canVer)
 
 	return tachyon.WrapResult(true, rd), nil
 }

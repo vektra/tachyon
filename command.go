@@ -7,7 +7,11 @@ import (
 	"sync"
 )
 
-type ResultData map[string]interface{}
+type ResultData map[string]Value
+
+func (rd ResultData) Set(key string, v interface{}) {
+	rd[key] = Any{v}
+}
 
 type Result struct {
 	Changed bool
@@ -17,11 +21,11 @@ type Result struct {
 func (r *Result) Get(key string) (Value, bool) {
 	v, ok := r.Data[key]
 
-	if !ok {
-		return nil, false
-	}
+	return v, ok
+}
 
-	return Any{v}, true
+func (r *Result) Add(key string, v interface{}) {
+	r.Data[key] = Any{v}
 }
 
 func WrapResult(changed bool, data ResultData) *Result {

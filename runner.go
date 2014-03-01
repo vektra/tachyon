@@ -144,7 +144,11 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 			asyncAction.Finish(cmd.Run(env, str))
 		}()
 	} else {
-		_, err := cmd.Run(env, str)
+		res, err := cmd.Run(env, str)
+
+		if name := task.Register(); name != "" {
+			fs.Set(name, res)
+		}
 
 		env.report.FinishTask(task, false)
 

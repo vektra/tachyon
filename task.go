@@ -26,7 +26,7 @@ func AdhocTask(cmd, args string) *Task {
 }
 
 var cOptions = []string{"name", "action", "notify", "async", "poll",
-	"when", "future"}
+	"when", "future", "register"}
 
 func (t *Task) Init() error {
 	t.Vars = make(strmap)
@@ -85,6 +85,14 @@ func (t *Task) Args() string {
 
 func (t *Task) Name() string {
 	return t.data["name"].(string)
+}
+
+func (t *Task) Register() string {
+	if v, ok := t.data["register"]; ok {
+		return v.(string)
+	}
+
+	return ""
 }
 
 func (t *Task) Future() string {

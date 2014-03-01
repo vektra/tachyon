@@ -96,9 +96,9 @@ func runCmd(env *Environment, parts []string) (*Result, error) {
 
 	r := NewResult(true)
 
-	r.Data["rc"] = rc
-	r.Data["stdout"] = stdout
-	r.Data["stderr"] = stderr
+	r.Add("rc", rc)
+	r.Add("stdout", stdout)
+	r.Add("stderr", stderr)
 
 	return r, nil
 }
@@ -177,9 +177,9 @@ func (cmd *CopyCmd) Run(env *Environment, args string) (*Result, error) {
 	}
 
 	rd := ResultData{
-		"md5sum": hex.Dump(srcDigest),
-		"src":    cmd.Src,
-		"dest":   dest,
+		"md5sum": Any{hex.Dump(srcDigest)},
+		"src":    Any{cmd.Src},
+		"dest":   Any{dest},
 	}
 
 	if dstDigest != nil && bytes.Equal(srcDigest, dstDigest) {

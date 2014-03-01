@@ -75,7 +75,7 @@ func TestCopyShowsNoChangeWhenFilesTheSame(t *testing.T) {
 			t.Errorf("The copy changed something incorrectly")
 		}
 
-		if res.Data["md5sum"].(string) == "" {
+		if res.Data["md5sum"].Read().(string) == "" {
 			t.Errorf("md5sum not returned")
 		}
 	})
@@ -178,11 +178,11 @@ func TestCommand(t *testing.T) {
 		t.Errorf("changed not properly set")
 	}
 
-	if res.Data["rc"].(int) != 0 {
+	if res.Data["rc"].Read().(int) != 0 {
 		t.Errorf("return code not captured")
 	}
 
-	if res.Data["stdout"].(string) == "" {
+	if res.Data["stdout"].Read().(string) == "" {
 		t.Errorf("stdout was not captured")
 	}
 }
@@ -193,11 +193,11 @@ func TestShell(t *testing.T) {
 		panic(err)
 	}
 
-	if res.Data["rc"].(int) != 0 {
+	if res.Data["rc"].Read().(int) != 0 {
 		t.Errorf("return code not captured")
 	}
 
-	if res.Data["stdout"].(string) == "hello dear" {
+	if res.Data["stdout"].Read().(string) == "hello dear" {
 		t.Errorf("stdout was not captured")
 	}
 }
@@ -208,11 +208,11 @@ func TestShellSeesNonZeroRC(t *testing.T) {
 		panic(err)
 	}
 
-	if res.Data["rc"].(int) != 1 {
+	if res.Data["rc"].Read().(int) != 1 {
 		t.Errorf("return code not captured")
 	}
 
-	if res.Data["stdout"].(string) == "hello dear" {
+	if res.Data["stdout"].Read().(string) == "hello dear" {
 		t.Errorf("stdout was not captured")
 	}
 }
