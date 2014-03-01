@@ -42,7 +42,32 @@ func expandTemplates(s Scope, args string) (string, error) {
 
 		name := bytes.TrimSpace(in[:fin])
 
-		if val, ok := s.Get(string(name)); ok {
+		parts := strings.Split(string(name), ".")
+
+		var (
+			val Value
+			ok  bool
+		)
+
+		if len(parts) == 1 {
+			val, ok = s.Get(string(name))
+		} else {
+			cur := parts[0]
+
+			val, ok = s.Get(cur)
+
+			for _, sub := range parts[1:] {
+				m, ok := val.Read().(Map)
+				if !ok {
+					return "", fmt.Errorf("Variable '%s' is not a Map", cur)
+				}
+
+				val, ok = m.Get(sub)
+				cur = sub
+			}
+		}
+
+		if ok {
 			switch val := val.Read().(type) {
 			case int64, int:
 				buf.WriteString(fmt.Sprintf("%d", val))

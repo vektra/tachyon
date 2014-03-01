@@ -16,6 +16,10 @@ func (a Any) Read() interface{} {
 	return a.v
 }
 
+type Map interface {
+	Get(key string) (Value, bool)
+}
+
 type Scope interface {
 	Get(key string) (Value, bool)
 	Set(key string, val interface{})

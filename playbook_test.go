@@ -85,7 +85,7 @@ func TestPlaybookFuturesRunInParallel(t *testing.T) {
 
 	diff := float32(fin.Sub(start)) / float32(time.Second)
 
-	if diff > 5.01 || diff < 4.98 {
+	if diff > 5.1 || diff < 4.9 {
 		t.Errorf("Futures did not run in parallel: %f", diff)
 	}
 }
@@ -103,7 +103,7 @@ func TestPlaybookFuturesCanBeWaitedOn(t *testing.T) {
 
 	diff := float32(fin.Sub(start)) / float32(time.Second)
 
-	if diff > 5.01 || diff < 4.98 {
-		t.Errorf("Futures did not run in parallel")
+	if diff > 5.1 || diff < 4.9 {
+		t.Errorf("Futures did not run in parallel: %f", diff)
 	}
 }
