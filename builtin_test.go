@@ -183,7 +183,7 @@ func TestCommand(t *testing.T) {
 	}
 
 	if res.Data["stdout"].Read().(string) == "" {
-		t.Errorf("stdout was not captured")
+		t.Errorf("stdout was not captured: '%s'", res.Data["stdout"].Read())
 	}
 }
 
@@ -197,8 +197,8 @@ func TestShell(t *testing.T) {
 		t.Errorf("return code not captured")
 	}
 
-	if res.Data["stdout"].Read().(string) == "hello dear" {
-		t.Errorf("stdout was not captured")
+	if res.Data["stdout"].Read().(string) != "hello dear" {
+		t.Errorf("stdout was not captured: '%s'", res.Data["stdout"].Read())
 	}
 }
 

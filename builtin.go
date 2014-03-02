@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -97,8 +98,8 @@ func runCmd(env *Environment, parts []string) (*Result, error) {
 	r := NewResult(true)
 
 	r.Add("rc", rc)
-	r.Add("stdout", stdout)
-	r.Add("stderr", stderr)
+	r.Add("stdout", strings.TrimSpace(stdout))
+	r.Add("stderr", strings.TrimSpace(stderr))
 
 	return r, nil
 }

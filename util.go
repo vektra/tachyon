@@ -114,3 +114,24 @@ func inferString(s string) interface{} {
 
 	return s
 }
+
+func indentedYAML(v interface{}, indent string) (string, error) {
+	str, err := goyaml.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(string(str), "\n")
+
+	out := make([]string, len(lines))
+
+	for idx, l := range lines {
+		if l == "" {
+			out[idx] = l
+		} else {
+			out[idx] = indent + l
+		}
+	}
+
+	return strings.Join(out, "\n"), nil
+}

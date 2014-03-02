@@ -1,6 +1,7 @@
 package tachyon
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -81,8 +82,8 @@ func (r *Runner) Run(env *Environment) error {
 }
 
 func RunAdhocTask(cmd, args string) (*Result, error) {
-	env := &Environment{Vars: NewNestedScope(nil)}
-	env.config = &Config{}
+	env := NewEnv(NewNestedScope(nil), &Config{})
+	defer env.Cleanup()
 
 	task := AdhocTask(cmd, args)
 
@@ -145,6 +146,16 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 		}()
 	} else {
 		res, err := cmd.Run(env, str)
+
+		fmt.Printf("  - result:\n")
+
+		if sy, err := indentedYAML(res.Data, "      "); err == nil {
+			fmt.Printf("%s", sy)
+		}
+
+		// for k, v := range res.Data {
+		// fmt.Printf("      %s: %v\n", k, v.Read())
+		// }
 
 		if name := task.Register(); name != "" {
 			fs.Set(name, res)

@@ -16,6 +16,15 @@ func (a Any) Read() interface{} {
 	return a.v
 }
 
+func (a Any) GetYAML() (string, interface{}) {
+	return "", a.v
+}
+
+func (a Any) SetYAML(tag string, v interface{}) bool {
+	a.v = v
+	return true
+}
+
 type Map interface {
 	Get(key string) (Value, bool)
 }

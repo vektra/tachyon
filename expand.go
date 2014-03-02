@@ -72,7 +72,7 @@ func expandTemplates(s Scope, args string) (string, error) {
 			case int64, int:
 				buf.WriteString(fmt.Sprintf("%d", val))
 			default:
-				buf.WriteString(strings.TrimSpace(fmt.Sprintf("%s", val)))
+				buf.WriteString(fmt.Sprintf("%s", val))
 			}
 
 			a = in[fin+2:]
@@ -126,7 +126,7 @@ func inferValue(val Value) lisp.Value {
 	case int64:
 		return lisp.NumberValue(lv)
 	case string:
-		return lisp.StringValue(strings.TrimSpace(lv))
+		return lisp.StringValue(lv)
 	case *Result:
 		return lisp.MapValue(&lispResult{lv})
 	default:
@@ -232,7 +232,7 @@ func ExpandVars(s Scope, args string) (string, error) {
 				case int64, int:
 					buf.WriteString(fmt.Sprintf("%d", val))
 				default:
-					buf.WriteString(strings.TrimSpace(fmt.Sprintf("%s", val)))
+					buf.WriteString(fmt.Sprintf("%s", val))
 				}
 
 				a = in[fin:]

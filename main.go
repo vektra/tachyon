@@ -33,8 +33,8 @@ func Main(args []string) int {
 		ns.Set(k, v)
 	}
 
-	env := &Environment{}
-	env.Init(ns, cfg)
+	env := NewEnv(ns, cfg)
+	defer env.Cleanup()
 
 	playbook, err := NewPlaybook(env, args[1])
 
