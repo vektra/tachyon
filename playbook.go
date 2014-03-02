@@ -71,10 +71,19 @@ func processTasks(datas []TaskData) Tasks {
 	return tasks
 }
 
+type playData struct {
+	Include    string
+	Vars       strmap
+	Hosts      string
+	Vars_files []interface{}
+	Tasks      []TaskData
+	Handlers   []TaskData
+}
+
 var eInvalidPlaybook = errors.New("Invalid playbook yaml")
 
 func (pb *Playbook) LoadPlays(fpath string, s Scope) ([]*Play, error) {
-	var seq []map[string]interface{}
+	var seq []playData
 
 	var plays []*Play
 
@@ -85,19 +94,15 @@ func (pb *Playbook) LoadPlays(fpath string, s Scope) ([]*Play, error) {
 	}
 
 	for _, item := range seq {
-		if x, ok := item["include"]; ok {
-			spath, ok := x.(string)
-
-			if !ok {
-				return nil, eInvalidPlaybook
-			}
+		if item.Include != "" {
+			spath := item.Include
 
 			// Make a new scope and put the vars into it. The subplays
 			// will use this scope as their parent.
 			ns := NewNestedScope(s)
 
-			if vars, ok := item["vars"]; ok {
-				ns.addVars(vars)
+			if item.Vars != nil {
+				ns.addVars(item.Vars)
 			}
 
 			parts, err := shlex.Split(spath)
@@ -124,7 +129,7 @@ func (pb *Playbook) LoadPlays(fpath string, s Scope) ([]*Play, error) {
 
 			plays = append(plays, sub...)
 		} else {
-			play, err := parsePlay(s, pb.baseDir, item)
+			play, err := parsePlay(s, pb.baseDir, &item)
 
 			if err != nil {
 				return nil, err
@@ -141,46 +146,27 @@ func formatError(where string) error {
 	return fmt.Errorf("Invalid playbook yaml: %s", where)
 }
 
-func (p *Play) castTasks(s Scope, x interface{}) ([]TaskData, error) {
-	xs, ok := x.([]interface{})
-	if !ok {
-		return nil, formatError("tasks not the right format")
-	}
-
+func (p *Play) castTasks(s Scope, t []TaskData) ([]TaskData, error) {
 	var tds []TaskData
 
-	for _, x := range xs {
-		if am, ok := x.(map[interface{}]interface{}); ok {
-			if _, ok := am["include"]; ok {
-				tasks, err := p.loadTasksFile(s, am)
-				if err != nil {
-					return nil, err
-				}
-
-				tds = append(tds, tasks...)
-			} else {
-				td := make(TaskData)
-
-				for k, v := range am {
-					if sk, ok := k.(string); ok {
-						td[sk] = v
-					} else {
-						return nil, formatError("non-string key in task")
-					}
-				}
-
-				tds = append(tds, td)
+	for _, x := range t {
+		if _, ok := x["include"]; ok {
+			tasks, err := p.loadTasksFile(s, x)
+			if err != nil {
+				return nil, err
 			}
+
+			tds = append(tds, tasks...)
 		} else {
-			return nil, formatError("task was not a map")
+			tds = append(tds, x)
 		}
 	}
 
 	return tds, nil
 }
 
-func (p *Play) loadTasksFile(s Scope, am map[interface{}]interface{}) ([]TaskData, error) {
-	path, ok := am["include"].(string)
+func (p *Play) loadTasksFile(s Scope, td TaskData) ([]TaskData, error) {
+	path, ok := td["include"].(string)
 	if !ok {
 		return nil, formatError("include was not a string")
 	}
@@ -197,43 +183,21 @@ func (p *Play) loadTasksFile(s Scope, am map[interface{}]interface{}) ([]TaskDat
 	return tds, err
 }
 
-func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
+func parsePlay(s Scope, dir string, m *playData) (*Play, error) {
 	var play Play
 
-	if x, ok := m["hosts"]; ok {
-		if str, ok := x.(string); ok {
-			play.Hosts = str
-		} else {
-			return nil, formatError("hosts not a string")
-		}
-	} else {
+	if m.Hosts == "" {
 		return nil, formatError("hosts missing")
 	}
 
+	play.Hosts = m.Hosts
 	play.Vars = NewNestedScope(s)
 
-	if x, ok := m["vars"]; ok {
-		if im, ok := x.(map[interface{}]interface{}); ok {
-			for ik, iv := range im {
-				if sk, ok := ik.(string); ok {
-					play.Vars.Set(sk, iv)
-				} else {
-					return nil, formatError("vars key not a string")
-				}
-			}
-		} else {
-			return nil, formatError("vars not a map")
-		}
+	for sk, iv := range m.Vars {
+		play.Vars.Set(sk, iv)
 	}
 
-	if x, ok := m["vars_files"]; ok {
-		if vf, ok := x.([]interface{}); ok {
-			play.VarsFiles = vf
-		} else {
-			return nil, formatError("vars_files not the right format")
-		}
-	}
-
+	play.VarsFiles = m.Vars_files
 	play.baseDir = dir
 
 	for _, file := range play.VarsFiles {
@@ -265,9 +229,8 @@ func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
 	}
 
 	var tasks []TaskData
-
-	if x, ok := m["tasks"]; ok {
-		tds, err := play.castTasks(s, x)
+	if len(m.Tasks) > 0 {
+		tds, err := play.castTasks(s, m.Tasks)
 
 		if err != nil {
 			return nil, err
@@ -278,8 +241,8 @@ func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
 
 	var handlers []TaskData
 
-	if x, ok := m["handlers"]; ok {
-		tds, err := play.castTasks(s, x)
+	if len(m.Handlers) > 0 {
+		tds, err := play.castTasks(s, m.Handlers)
 
 		if err != nil {
 			return nil, err
