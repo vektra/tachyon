@@ -10,6 +10,9 @@ type Runner struct {
 	wait      sync.WaitGroup
 	to_notify map[string]struct{}
 	async     chan *AsyncAction
+	report    Reporter
+
+	Results []*Result
 }
 
 func NewRunner(env *Environment, plays []*Play) *Runner {
@@ -18,11 +21,16 @@ func NewRunner(env *Environment, plays []*Play) *Runner {
 		plays:     plays,
 		to_notify: make(map[string]struct{}),
 		async:     make(chan *AsyncAction),
+		report:    env.report,
 	}
 
 	go r.handleAsync()
 
 	return r
+}
+
+func (r *Runner) SetReport(rep Reporter) {
+	r.report = rep
 }
 
 func (r *Runner) AddNotify(n string) {
@@ -40,7 +48,7 @@ func (r *Runner) AsyncChannel() chan *AsyncAction {
 }
 
 func (r *Runner) Run(env *Environment) error {
-	env.report.StartTasks(r)
+	r.report.StartTasks(r)
 
 	for _, play := range r.plays {
 		fs := NewFutureScope(play.Vars)
@@ -55,11 +63,11 @@ func (r *Runner) Run(env *Environment) error {
 		fs.Wait()
 	}
 
-	env.report.FinishTasks(r)
+	r.report.FinishTasks(r)
 
 	r.wait.Wait()
 
-	env.report.StartHandlers(r)
+	r.report.StartHandlers(r)
 
 	for _, play := range r.plays {
 		fs := NewFutureScope(play.Vars)
@@ -77,7 +85,7 @@ func (r *Runner) Run(env *Environment) error {
 		fs.Wait()
 	}
 
-	env.report.FinishHandlers(r)
+	r.report.FinishHandlers(r)
 
 	return nil
 }
@@ -126,7 +134,7 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 		return err
 	}
 
-	env.report.StartTask(task, cmd, str)
+	r.report.StartTask(task, cmd, str)
 
 	if name := task.Future(); name != "" {
 		future := NewFuture(func() (*Result, error) {
@@ -152,7 +160,9 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 			fs.Set(name, res)
 		}
 
-		env.report.FinishTask(task, res)
+		r.Results = append(r.Results, res)
+
+		r.report.FinishTask(task, res)
 
 		if err == nil {
 			for _, x := range task.Notify() {

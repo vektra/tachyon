@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -24,12 +25,16 @@ func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
 
 	defer stdout.Close()
 
+	var wg sync.WaitGroup
+
 	var bout bytes.Buffer
 	var berr bytes.Buffer
 
 	prefix := []byte(`| `)
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		buf := bufio.NewReader(stdout)
 
 		for {
@@ -57,7 +62,9 @@ func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
 
 	defer stderr.Close()
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		buf := bufio.NewReader(stderr)
 
 		for {
@@ -77,6 +84,8 @@ func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
 	}()
 
 	err = c.Run()
+
+	wg.Wait()
 
 	return bout.String(), berr.String(), err
 }

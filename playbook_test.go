@@ -6,7 +6,7 @@ import (
 )
 
 func TestSimplePlaybook(t *testing.T) {
-	env := &Environment{Vars: NewNestedScope(nil)}
+	env := NewEnv(NewNestedScope(nil), DefaultConfig)
 	p, err := NewPlaybook(env, "test/playbook1.yml")
 
 	if err != nil {
@@ -75,9 +75,8 @@ func TestSimplePlaybook(t *testing.T) {
 func TestPlaybookFuturesRunInParallel(t *testing.T) {
 	start := time.Now()
 
-	i := Main([]string{"tachyon", "test/future.yml"})
-
-	if i != 0 {
+	_, _, err := RunCapture("test/future.yml")
+	if err != nil {
 		t.Fatalf("Unable to load test/future.yml")
 	}
 
@@ -93,10 +92,9 @@ func TestPlaybookFuturesRunInParallel(t *testing.T) {
 func TestPlaybookFuturesCanBeWaitedOn(t *testing.T) {
 	start := time.Now()
 
-	i := Main([]string{"tachyon", "test/future2.yml"})
-
-	if i != 0 {
-		t.Fatalf("Unable to load test/future2.yml")
+	_, _, err := RunCapture("test/future.yml")
+	if err != nil {
+		t.Fatalf("Unable to load test/future.yml")
 	}
 
 	fin := time.Now()
