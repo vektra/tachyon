@@ -1,19 +1,20 @@
 package tachyon
 
 import (
-	"fmt"
 	"sync"
 )
 
 type Runner struct {
+	env       *Environment
 	plays     []*Play
 	wait      sync.WaitGroup
 	to_notify map[string]struct{}
 	async     chan *AsyncAction
 }
 
-func NewRunner(plays []*Play) *Runner {
+func NewRunner(env *Environment, plays []*Play) *Runner {
 	r := &Runner{
+		env:       env,
 		plays:     plays,
 		to_notify: make(map[string]struct{}),
 		async:     make(chan *AsyncAction),
@@ -147,21 +148,11 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 	} else {
 		res, err := cmd.Run(env, str)
 
-		fmt.Printf("  - result:\n")
-
-		if sy, err := indentedYAML(res.Data, "      "); err == nil {
-			fmt.Printf("%s", sy)
-		}
-
-		// for k, v := range res.Data {
-		// fmt.Printf("      %s: %v\n", k, v.Read())
-		// }
-
 		if name := task.Register(); name != "" {
 			fs.Set(name, res)
 		}
 
-		env.report.FinishTask(task, false)
+		env.report.FinishTask(task, res)
 
 		if err == nil {
 			for _, x := range task.Notify() {

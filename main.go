@@ -42,7 +42,7 @@ func Main(args []string) int {
 		return 1
 	}
 
-	runner := NewRunner(playbook.Plays)
+	runner := NewRunner(env, playbook.Plays)
 	err = runner.Run(env)
 
 	if err != nil {
