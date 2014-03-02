@@ -141,12 +141,24 @@ func formatError(where string) error {
 	return fmt.Errorf("Invalid playbook yaml: %s", where)
 }
 
-func castTasks(x interface{}) ([]TaskData, error) {
-	if xs, ok := x.([]interface{}); ok {
-		var tds []TaskData
+func (p *Play) castTasks(s Scope, x interface{}) ([]TaskData, error) {
+	xs, ok := x.([]interface{})
+	if !ok {
+		return nil, formatError("tasks not the right format")
+	}
 
-		for _, x := range xs {
-			if am, ok := x.(map[interface{}]interface{}); ok {
+	var tds []TaskData
+
+	for _, x := range xs {
+		if am, ok := x.(map[interface{}]interface{}); ok {
+			if _, ok := am["include"]; ok {
+				tasks, err := p.loadTasksFile(s, am)
+				if err != nil {
+					return nil, err
+				}
+
+				tds = append(tds, tasks...)
+			} else {
 				td := make(TaskData)
 
 				for k, v := range am {
@@ -158,15 +170,31 @@ func castTasks(x interface{}) ([]TaskData, error) {
 				}
 
 				tds = append(tds, td)
-			} else {
-				return nil, formatError("task was not a map")
 			}
+		} else {
+			return nil, formatError("task was not a map")
 		}
-
-		return tds, nil
-	} else {
-		return nil, formatError("tasks not the right format")
 	}
+
+	return tds, nil
+}
+
+func (p *Play) loadTasksFile(s Scope, am map[interface{}]interface{}) ([]TaskData, error) {
+	path, ok := am["include"].(string)
+	if !ok {
+		return nil, formatError("include was not a string")
+	}
+
+	path, err := ExpandVars(s, path)
+	if err != nil {
+		return nil, err
+	}
+
+	var tds []TaskData
+
+	err = yamlFile(p.path(path), &tds)
+
+	return tds, err
 }
 
 func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
@@ -239,7 +267,7 @@ func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
 	var tasks []TaskData
 
 	if x, ok := m["tasks"]; ok {
-		tds, err := castTasks(x)
+		tds, err := play.castTasks(s, x)
 
 		if err != nil {
 			return nil, err
@@ -251,7 +279,7 @@ func parsePlay(s Scope, dir string, m map[string]interface{}) (*Play, error) {
 	var handlers []TaskData
 
 	if x, ok := m["handlers"]; ok {
-		tds, err := castTasks(x)
+		tds, err := play.castTasks(s, x)
 
 		if err != nil {
 			return nil, err

@@ -37,6 +37,10 @@ func Main(args []string) int {
 	defer env.Cleanup()
 
 	playbook, err := NewPlaybook(env, args[1])
+	if err != nil {
+		fmt.Printf("Error loading plays: %s\n", err)
+		return 1
+	}
 
 	runner := NewRunner(playbook.Plays)
 	err = runner.Run(env)
