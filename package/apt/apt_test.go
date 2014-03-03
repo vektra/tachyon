@@ -17,15 +17,15 @@ func TestAptDryRun(t *testing.T) {
 		t.Error("No change detected")
 	}
 
-	if res.Data["installed"] != "" {
+	if res.Data.Get("installed") != "" {
 		t.Error("incorrectly found an installed version")
 	}
 
-	if res.Data["candidate"] == "" {
+	if res.Data.Get("candidate") == "" {
 		t.Error("no candidate found")
 	}
 
-	if res.Data["dryrun"] != true {
+	if res.Data.Get("dryrun") != true {
 		t.Error("dryrun not true")
 	}
 }
@@ -47,7 +47,7 @@ func TestAptInstallAndRemoves(t *testing.T) {
 	}
 
 	grep := fmt.Sprintf(`apt-cache policy acct | grep "Installed: %s"`,
-		res.Data["installed"])
+		res.Data.Get("installed"))
 
 	_, err = exec.Command("sh", "-c", grep).CombinedOutput()
 
@@ -76,9 +76,9 @@ func TestAptInstallAndRemoves(t *testing.T) {
 		t.Fatal("acct was not removed")
 	}
 
-	if res3.Data["removed"] != res.Data["installed"] {
+	if res3.Data.Get("removed") != res.Data.Get("installed") {
 		t.Fatalf("removed isn't set to the version removed: '%s '%s'",
-			res3.Data["removed"], res.Data["installed"])
+			res3.Data.Get("removed"), res.Data.Get("installed"))
 	}
 
 	res4, err := tachyon.RunAdhocTask("apt", "pkg=acct state=absent")

@@ -13,6 +13,14 @@ func (rd ResultData) Set(key string, v interface{}) {
 	rd[key] = Any{v}
 }
 
+func (rd ResultData) Get(key string) interface{} {
+	if a, ok := rd[key]; !ok {
+		return nil
+	} else {
+		return a.Read()
+	}
+}
+
 type Result struct {
 	Changed bool
 	Data    ResultData
