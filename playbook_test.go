@@ -144,3 +144,20 @@ func TestPlaybookTaskIncludesCanHaveVars(t *testing.T) {
 		t.Fatalf("A variable was not passed into the included file")
 	}
 }
+
+func TestPlaybookRoleTasksInclude(t *testing.T) {
+	res, _, err := RunCapture("test/site1.yml")
+	if err != nil {
+		t.Fatalf("Unable to run test/site1.yml: %s", err)
+	}
+
+	if len(res.Results) == 0 {
+		t.Fatalf("tasks were not included from the role")
+	}
+
+	d := res.Results[0].Result
+
+	if v, ok := d.Get("stdout"); !ok || v.Read() != "in role" {
+		t.Fatalf("Task did not run from role")
+	}
+}

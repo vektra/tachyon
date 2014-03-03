@@ -5,6 +5,7 @@ import (
 	"github.com/flynn/go-shlex"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -134,4 +135,13 @@ func indentedYAML(v interface{}, indent string) (string, error) {
 	}
 
 	return strings.Join(out, "\n"), nil
+}
+
+func fileExist(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	return !fi.IsDir()
 }

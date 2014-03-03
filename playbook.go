@@ -21,7 +21,9 @@ type Play struct {
 	VarsFiles  VarsFiles
 	Tasks      Tasks
 	Handlers   Tasks
-	baseDir    string
+	Roles      []string
+
+	baseDir string
 }
 
 type Playbook struct {
@@ -77,6 +79,7 @@ type playData struct {
 	Vars_files []interface{}
 	Tasks      []TaskData
 	Handlers   []TaskData
+	Roles      []string
 }
 
 var eInvalidPlaybook = errors.New("Invalid playbook yaml")
@@ -147,8 +150,8 @@ func formatError(where string) error {
 
 func (p *Play) importTasks(tasks *Tasks, file string, s Scope, tds []TaskData) error {
 	for _, x := range tds {
-		if _, ok := x["include"]; ok {
-			err := p.importTasksFile(tasks, s, x)
+		if path, ok := x["include"]; ok {
+			err := p.importTasksFile(tasks, path.(string), s, x)
 			if err != nil {
 				return err
 			}
@@ -162,12 +165,7 @@ func (p *Play) importTasks(tasks *Tasks, file string, s Scope, tds []TaskData) e
 	return nil
 }
 
-func (p *Play) importTasksFile(tasks *Tasks, s Scope, td TaskData) error {
-	path, ok := td["include"].(string)
-	if !ok {
-		return formatError("include was not a string")
-	}
-
+func (p *Play) importTasksFile(tasks *Tasks, path string, s Scope, td TaskData) error {
 	parts := strings.SplitN(path, " ", 2)
 
 	path, err := ExpandVars(s, parts[0])
@@ -219,8 +217,8 @@ func (p *Play) importTasksFile(tasks *Tasks, s Scope, td TaskData) error {
 	}
 
 	for _, x := range tds {
-		if _, ok := x["include"]; ok {
-			err := p.importTasksFile(tasks, s, x)
+		if spath, ok := x["include"]; ok {
+			err := p.importTasksFile(tasks, spath.(string), s, x)
 			if err != nil {
 				return err
 			}
@@ -233,6 +231,26 @@ func (p *Play) importTasksFile(tasks *Tasks, s Scope, td TaskData) error {
 	}
 
 	return nil
+}
+
+func (p *Play) importRole(role string, s Scope) (string, error) {
+	dir := p.path("roles/" + role)
+
+	if _, err := os.Stat(dir); err != nil {
+		return "", fmt.Errorf("No role named %s available", role)
+	}
+
+	tasks := filepath.Join("roles", role, "tasks", "main.yml")
+
+	if fileExist(p.path(tasks)) {
+		td := TaskData{}
+		err := p.importTasksFile(&p.Tasks, tasks, s, td)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return role, nil
 }
 
 func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
@@ -292,6 +310,15 @@ func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	for _, role := range m.Roles {
+		name, err := play.importRole(role, s)
+		if err != nil {
+			return nil, err
+		}
+
+		play.Roles = append(play.Roles, name)
 	}
 
 	return &play, nil
