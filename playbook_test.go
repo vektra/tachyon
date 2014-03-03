@@ -137,4 +137,10 @@ func TestPlaybookTaskIncludesCanHaveVars(t *testing.T) {
 	if v, ok := d.Get("stdout"); !ok || v.Read() != "ellen" {
 		t.Fatalf("A variable was not passed into the included file")
 	}
+
+	d = res.Results[2].Result
+
+	if v, ok := d.Get("stdout"); !ok || v.Read() != "Los Angeles" {
+		t.Fatalf("A variable was not passed into the included file")
+	}
 }

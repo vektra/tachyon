@@ -199,11 +199,22 @@ func (p *Play) importTasksFile(tasks *Tasks, s Scope, td TaskData) error {
 		}
 	}
 
+	// Inject yaml structured vars
 	if xvars, ok := td["vars"]; ok {
 		if cast, ok := xvars.(map[interface{}]interface{}); ok {
 			for gk, gv := range cast {
 				iv[gk.(string)] = gv
 			}
+		}
+	}
+
+	// Inject all additional keys
+	for k, v := range td {
+		switch k {
+		case "include", "vars":
+			continue
+		default:
+			iv[k] = v
 		}
 	}
 

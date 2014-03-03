@@ -2,5 +2,6 @@
 - hosts: all
   tasks:
     - include: inc_child2.yml name=oscar
+      city: Los Angeles
       vars:
         host: ellen
