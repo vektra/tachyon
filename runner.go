@@ -2,7 +2,14 @@ package tachyon
 
 import (
 	"sync"
+	"time"
 )
+
+type RunResult struct {
+	Task    *Task
+	Result  *Result
+	Runtime time.Duration
+}
 
 type Runner struct {
 	env       *Environment
@@ -12,7 +19,8 @@ type Runner struct {
 	async     chan *AsyncAction
 	report    Reporter
 
-	Results []*Result
+	Results []RunResult
+	Runtime time.Duration
 }
 
 func NewRunner(env *Environment, plays []*Play) *Runner {
@@ -48,6 +56,11 @@ func (r *Runner) AsyncChannel() chan *AsyncAction {
 }
 
 func (r *Runner) Run(env *Environment) error {
+	start := time.Now()
+	defer func() {
+		r.Runtime = time.Since(start)
+	}()
+
 	r.report.StartTasks(r)
 
 	for _, play := range r.plays {
@@ -60,7 +73,7 @@ func (r *Runner) Run(env *Environment) error {
 			}
 		}
 
-		fs.Wait()
+		r.Results = append(r.Results, fs.Results()...)
 	}
 
 	r.report.FinishTasks(r)
@@ -110,6 +123,8 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 }
 
 func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
+	start := time.Now()
+
 	if when := task.When(); when != "" {
 		when, err := ExpandVars(fs, when)
 
@@ -137,7 +152,7 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 	r.report.StartTask(task, cmd, str)
 
 	if name := task.Future(); name != "" {
-		future := NewFuture(func() (*Result, error) {
+		future := NewFuture(start, task, func() (*Result, error) {
 			return cmd.Run(env, str)
 		})
 
@@ -160,7 +175,9 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 			fs.Set(name, res)
 		}
 
-		r.Results = append(r.Results, res)
+		runtime := time.Since(start)
+
+		r.Results = append(r.Results, RunResult{task, res, runtime})
 
 		r.report.FinishTask(task, res)
 

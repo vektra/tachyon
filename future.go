@@ -2,16 +2,21 @@ package tachyon
 
 import (
 	"sync"
+	"time"
 )
 
 type Future struct {
+	Task    *Task
+	Start   time.Time
+	Runtime time.Duration
+
 	result *Result
 	err    error
 	wg     sync.WaitGroup
 }
 
-func NewFuture(f func() (*Result, error)) *Future {
-	fut := &Future{}
+func NewFuture(start time.Time, task *Task, f func() (*Result, error)) *Future {
+	fut := &Future{Start: start, Task: task}
 
 	fut.wg.Add(1)
 
@@ -19,6 +24,7 @@ func NewFuture(f func() (*Result, error)) *Future {
 		r, e := f()
 		fut.result = r
 		fut.err = e
+		fut.Runtime = time.Since(fut.Start)
 		fut.wg.Done()
 	}()
 
@@ -69,4 +75,16 @@ func (fs *FutureScope) Wait() {
 	for _, f := range fs.futures {
 		f.Wait()
 	}
+}
+
+func (fs *FutureScope) Results() []RunResult {
+	var results []RunResult
+
+	for _, f := range fs.futures {
+		f.Wait()
+
+		results = append(results, RunResult{f.Task, f.result, f.Runtime})
+	}
+
+	return results
 }

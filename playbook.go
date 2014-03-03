@@ -13,8 +13,6 @@ type VarsFiles []interface{}
 
 type Notifications []string
 
-type TaskData map[string]interface{}
-
 type Play struct {
 	Hosts      string
 	Connection string
@@ -58,11 +56,11 @@ func NewPlaybook(env *Environment, p string) (*Playbook, error) {
 	return pb, nil
 }
 
-func processTasks(datas []TaskData) Tasks {
+func (p *Play) processTasks(datas []TaskData) Tasks {
 	tasks := make(Tasks, len(datas))
 
 	for idx, data := range datas {
-		task := &Task{data: data}
+		task := &Task{data: data, Play: p}
 		task.Init()
 
 		tasks[idx] = task
@@ -129,7 +127,7 @@ func (pb *Playbook) LoadPlays(fpath string, s Scope) ([]*Play, error) {
 
 			plays = append(plays, sub...)
 		} else {
-			play, err := parsePlay(s, pb.baseDir, &item)
+			play, err := parsePlay(s, fpath, pb.baseDir, &item)
 
 			if err != nil {
 				return nil, err
@@ -146,7 +144,7 @@ func formatError(where string) error {
 	return fmt.Errorf("Invalid playbook yaml: %s", where)
 }
 
-func (p *Play) castTasks(s Scope, t []TaskData) ([]TaskData, error) {
+func (p *Play) castTasks(s Scope, file string, t []TaskData) ([]TaskData, error) {
 	var tds []TaskData
 
 	for _, x := range t {
@@ -158,6 +156,7 @@ func (p *Play) castTasks(s Scope, t []TaskData) ([]TaskData, error) {
 
 			tds = append(tds, tasks...)
 		} else {
+			x[":file"] = file
 			tds = append(tds, x)
 		}
 	}
@@ -178,12 +177,18 @@ func (p *Play) loadTasksFile(s Scope, td TaskData) ([]TaskData, error) {
 
 	var tds []TaskData
 
-	err = yamlFile(p.path(path), &tds)
+	filePath := p.path(path)
+
+	err = yamlFile(filePath, &tds)
+
+	for _, td := range tds {
+		td[":file"] = filePath
+	}
 
 	return tds, err
 }
 
-func parsePlay(s Scope, dir string, m *playData) (*Play, error) {
+func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 	var play Play
 
 	if m.Hosts == "" {
@@ -230,7 +235,7 @@ func parsePlay(s Scope, dir string, m *playData) (*Play, error) {
 
 	var tasks []TaskData
 	if len(m.Tasks) > 0 {
-		tds, err := play.castTasks(s, m.Tasks)
+		tds, err := play.castTasks(s, file, m.Tasks)
 
 		if err != nil {
 			return nil, err
@@ -242,7 +247,7 @@ func parsePlay(s Scope, dir string, m *playData) (*Play, error) {
 	var handlers []TaskData
 
 	if len(m.Handlers) > 0 {
-		tds, err := play.castTasks(s, m.Handlers)
+		tds, err := play.castTasks(s, file, m.Handlers)
 
 		if err != nil {
 			return nil, err
@@ -251,8 +256,8 @@ func parsePlay(s Scope, dir string, m *playData) (*Play, error) {
 		handlers = tds
 	}
 
-	play.Tasks = processTasks(tasks)
-	play.Handlers = processTasks(handlers)
+	play.Tasks = play.processTasks(tasks)
+	play.Handlers = play.processTasks(handlers)
 
 	return &play, nil
 }

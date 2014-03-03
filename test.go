@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func RunCapture(path string) ([]*Result, string, error) {
+func RunCapture(path string) (*Runner, string, error) {
 	cfg := &Config{ShowCommandOutput: false}
 
 	ns := NewNestedScope(nil)
@@ -32,5 +32,5 @@ func RunCapture(path string) ([]*Result, string, error) {
 		return nil, "", err
 	}
 
-	return runner.Results, buf.String(), nil
+	return runner, buf.String(), nil
 }

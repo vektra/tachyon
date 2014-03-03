@@ -1,6 +1,7 @@
 package tachyon
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -72,36 +73,51 @@ func TestSimplePlaybook(t *testing.T) {
 	}
 }
 
-func TestPlaybookFuturesRunInParallel(t *testing.T) {
-	start := time.Now()
+func totalRuntime(results []RunResult) time.Duration {
+	cur := time.Duration(0)
 
-	_, _, err := RunCapture("test/future.yml")
+	for _, res := range results {
+		cur += res.Runtime
+	}
+
+	return cur
+}
+
+func TestPlaybookFuturesRunInParallel(t *testing.T) {
+	run, _, err := RunCapture("test/future.yml")
 	if err != nil {
 		t.Fatalf("Unable to load test/future.yml")
 	}
 
-	fin := time.Now()
+	total := run.Runtime.Seconds()
 
-	diff := float32(fin.Sub(start)) / float32(time.Second)
-
-	if diff > 5.1 || diff < 4.9 {
-		t.Errorf("Futures did not run in parallel: %f", diff)
+	if total > 5.1 || total < 4.9 {
+		t.Errorf("Futures did not run in parallel: %f", total)
 	}
 }
 
 func TestPlaybookFuturesCanBeWaitedOn(t *testing.T) {
-	start := time.Now()
-
-	_, _, err := RunCapture("test/future.yml")
+	run, _, err := RunCapture("test/future.yml")
 	if err != nil {
 		t.Fatalf("Unable to load test/future.yml")
 	}
 
-	fin := time.Now()
+	total := run.Runtime.Seconds()
 
-	diff := float32(fin.Sub(start)) / float32(time.Second)
+	if total > 5.1 || total < 4.9 {
+		t.Errorf("Futures did not run in parallel: %f", total)
+	}
+}
 
-	if diff > 5.1 || diff < 4.9 {
-		t.Errorf("Futures did not run in parallel: %f", diff)
+func TestPlaybookTaskIncludes(t *testing.T) {
+	res, _, err := RunCapture("test/inc_parent.yml")
+	if err != nil {
+		t.Fatalf("Unable to run test/inc_parent.yml")
+	}
+
+	// fmt.Printf("%#v\n", res.Results[0].Task.Play.File)
+
+	if filepath.Base(res.Results[0].Task.File()) != "inc_child.yml" {
+		t.Fatalf("Did not include tasks from child")
 	}
 }
