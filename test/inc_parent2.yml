@@ -2,3 +2,5 @@
 - hosts: all
   tasks:
     - include: inc_child2.yml name=oscar
+      vars:
+        host: ellen

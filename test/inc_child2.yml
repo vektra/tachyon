@@ -1,3 +1,5 @@
 ---
 - name: show name
   shell: echo $name
+- name: show host
+  shell: echo $host

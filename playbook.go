@@ -199,6 +199,14 @@ func (p *Play) importTasksFile(tasks *Tasks, s Scope, td TaskData) error {
 		}
 	}
 
+	if xvars, ok := td["vars"]; ok {
+		if cast, ok := xvars.(map[interface{}]interface{}); ok {
+			for gk, gv := range cast {
+				iv[gk.(string)] = gv
+			}
+		}
+	}
+
 	for _, x := range tds {
 		if _, ok := x["include"]; ok {
 			err := p.importTasksFile(tasks, s, x)
