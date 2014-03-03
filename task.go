@@ -9,11 +9,14 @@ type strmap map[string]interface{}
 
 type Task struct {
 	Play *Play
+	File string
 
 	data TaskData
 	cmd  string
 	args string
 	Vars strmap
+
+	IncludeVars strmap
 }
 
 type TaskData map[string]interface{}
@@ -30,7 +33,7 @@ func AdhocTask(cmd, args string) *Task {
 }
 
 var cOptions = []string{"name", "action", "notify", "async", "poll",
-	"when", "future", "register", ":file"}
+	"when", "future", "register"}
 
 func (t *Task) Init() error {
 	t.Vars = make(strmap)
@@ -89,14 +92,6 @@ func (t *Task) Args() string {
 
 func (t *Task) Name() string {
 	return t.data["name"].(string)
-}
-
-func (t *Task) File() string {
-	if v, ok := t.data[":file"]; ok {
-		return v.(string)
-	}
-
-	return ""
 }
 
 func (t *Task) Register() string {

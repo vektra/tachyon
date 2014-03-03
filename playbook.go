@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 )
 
 type VarsFiles []interface{}
@@ -144,48 +145,75 @@ func formatError(where string) error {
 	return fmt.Errorf("Invalid playbook yaml: %s", where)
 }
 
-func (p *Play) castTasks(s Scope, file string, t []TaskData) ([]TaskData, error) {
-	var tds []TaskData
-
-	for _, x := range t {
+func (p *Play) importTasks(tasks *Tasks, file string, s Scope, tds []TaskData) error {
+	for _, x := range tds {
 		if _, ok := x["include"]; ok {
-			tasks, err := p.loadTasksFile(s, x)
+			err := p.importTasksFile(tasks, s, x)
 			if err != nil {
-				return nil, err
+				return err
 			}
-
-			tds = append(tds, tasks...)
 		} else {
-			x[":file"] = file
-			tds = append(tds, x)
+			task := &Task{data: x, Play: p, File: file}
+			task.Init()
+			*tasks = append(*tasks, task)
 		}
 	}
 
-	return tds, nil
+	return nil
 }
 
-func (p *Play) loadTasksFile(s Scope, td TaskData) ([]TaskData, error) {
+func (p *Play) importTasksFile(tasks *Tasks, s Scope, td TaskData) error {
 	path, ok := td["include"].(string)
 	if !ok {
-		return nil, formatError("include was not a string")
+		return formatError("include was not a string")
 	}
 
-	path, err := ExpandVars(s, path)
+	parts := strings.SplitN(path, " ", 2)
+
+	path, err := ExpandVars(s, parts[0])
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	var tds []TaskData
 
 	filePath := p.path(path)
 
-	err = yamlFile(filePath, &tds)
+	var tds []TaskData
 
-	for _, td := range tds {
-		td[":file"] = filePath
+	err = yamlFile(filePath, &tds)
+	if err != nil {
+		return err
 	}
 
-	return tds, err
+	var iv strmap
+
+	if len(parts) == 2 {
+		sm, err := ParseSimpleMap(s, parts[1])
+		if err != nil {
+			return err
+		}
+
+		iv = make(strmap)
+
+		for k, v := range sm {
+			iv[k] = inferString(v)
+		}
+	}
+
+	for _, x := range tds {
+		if _, ok := x["include"]; ok {
+			err := p.importTasksFile(tasks, s, x)
+			if err != nil {
+				return err
+			}
+		} else {
+			task := &Task{data: x, Play: p, File: path}
+			task.Init()
+			task.IncludeVars = iv
+			*tasks = append(*tasks, task)
+		}
+	}
+
+	return nil
 }
 
 func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
@@ -233,31 +261,19 @@ func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 		}
 	}
 
-	var tasks []TaskData
 	if len(m.Tasks) > 0 {
-		tds, err := play.castTasks(s, file, m.Tasks)
-
+		err := play.importTasks(&play.Tasks, file, s, m.Tasks)
 		if err != nil {
 			return nil, err
 		}
-
-		tasks = tds
 	}
-
-	var handlers []TaskData
 
 	if len(m.Handlers) > 0 {
-		tds, err := play.castTasks(s, file, m.Handlers)
-
+		err := play.importTasks(&play.Handlers, file, s, m.Tasks)
 		if err != nil {
 			return nil, err
 		}
-
-		handlers = tds
 	}
-
-	play.Tasks = play.processTasks(tasks)
-	play.Handlers = play.processTasks(handlers)
 
 	return &play, nil
 }

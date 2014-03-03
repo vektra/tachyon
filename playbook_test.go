@@ -115,9 +115,20 @@ func TestPlaybookTaskIncludes(t *testing.T) {
 		t.Fatalf("Unable to run test/inc_parent.yml")
 	}
 
-	// fmt.Printf("%#v\n", res.Results[0].Task.Play.File)
-
-	if filepath.Base(res.Results[0].Task.File()) != "inc_child.yml" {
+	if filepath.Base(res.Results[0].Task.File) != "inc_child.yml" {
 		t.Fatalf("Did not include tasks from child")
+	}
+}
+
+func TestPlaybookTaskIncludesCanHaveVars(t *testing.T) {
+	res, _, err := RunCapture("test/inc_parent2.yml")
+	if err != nil {
+		t.Fatalf("Unable to run test/inc_parent2.yml: %s", err)
+	}
+
+	d := res.Results[0].Result
+
+	if v, ok := d.Get("stdout"); !ok || v.Read() != "oscar" {
+		t.Fatalf("A variable was not passed into the included file")
 	}
 }

@@ -122,11 +122,32 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 	return obj.Run(env, str)
 }
 
+type PriorityScope struct {
+	task strmap
+	rest Scope
+}
+
+func (p *PriorityScope) Get(key string) (Value, bool) {
+	if p.task != nil {
+		if v, ok := p.task[key]; ok {
+			return Any{v}, true
+		}
+	}
+
+	return p.rest.Get(key)
+}
+
+func (p *PriorityScope) Set(key string, val interface{}) {
+	p.rest.Set(key, val)
+}
+
 func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
+	ps := &PriorityScope{task.IncludeVars, fs}
+
 	start := time.Now()
 
 	if when := task.When(); when != "" {
-		when, err := ExpandVars(fs, when)
+		when, err := ExpandVars(ps, when)
 
 		if err != nil {
 			return err
@@ -137,13 +158,13 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 		}
 	}
 
-	str, err := ExpandVars(fs, task.Args())
+	str, err := ExpandVars(ps, task.Args())
 
 	if err != nil {
 		return err
 	}
 
-	cmd, err := MakeCommand(fs, task, str)
+	cmd, err := MakeCommand(ps, task, str)
 
 	if err != nil {
 		return err

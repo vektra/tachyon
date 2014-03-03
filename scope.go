@@ -34,6 +34,10 @@ type Scope interface {
 	Set(key string, val interface{})
 }
 
+type ScopeGetter interface {
+	Get(key string) (Value, bool)
+}
+
 func SV(v interface{}, ok bool) interface{} {
 	if !ok {
 		return nil
