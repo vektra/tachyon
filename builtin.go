@@ -83,9 +83,11 @@ func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
 		}
 	}()
 
-	err = c.Run()
+	c.Start()
 
 	wg.Wait()
+
+	err = c.Wait()
 
 	return bout.String(), berr.String(), err
 }
