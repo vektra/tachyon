@@ -2,7 +2,7 @@
 - hosts: all
   tasks:
   - name: sleep 1
-    shell: sleep 5 && echo "hello"
+    shell: sleep 1 && echo "hello"
     future: greeting
   - name: depend
     shell: echo $(read greeting.stdout)

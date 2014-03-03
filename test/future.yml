@@ -2,8 +2,8 @@
 - hosts: all
   tasks:
   - name: sleep 1
-    shell: sleep 5
+    shell: sleep 1
     future: one
   - name: sleep 2
-    shell: sleep 5
+    shell: sleep 1
     future: two

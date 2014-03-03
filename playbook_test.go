@@ -91,7 +91,7 @@ func TestPlaybookFuturesRunInParallel(t *testing.T) {
 
 	total := run.Runtime.Seconds()
 
-	if total > 5.1 || total < 4.9 {
+	if total > 1.1 || total < 0.9 {
 		t.Errorf("Futures did not run in parallel: %f", total)
 	}
 }
@@ -104,7 +104,7 @@ func TestPlaybookFuturesCanBeWaitedOn(t *testing.T) {
 
 	total := run.Runtime.Seconds()
 
-	if total > 5.1 || total < 4.9 {
+	if total > 1.1 || total < 0.9 {
 		t.Errorf("Futures did not run in parallel: %f", total)
 	}
 }
