@@ -255,6 +255,21 @@ func (p *Play) importRole(o interface{}, s Scope) (string, error) {
 		return "", formatError("role not a map")
 	}
 
+	parts := strings.SplitN(role, " ", 2)
+
+	if len(parts) == 2 {
+		role = parts[0]
+
+		sm, err := ParseSimpleMap(ts, parts[1])
+		if err != nil {
+			return "", err
+		}
+
+		for k, v := range sm {
+			td[k] = inferString(v)
+		}
+	}
+
 	dir := p.path("roles/" + role)
 
 	if _, err := os.Stat(dir); err != nil {

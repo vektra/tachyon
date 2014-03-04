@@ -212,3 +212,20 @@ func TestPlaybookRoleAcceptsVars(t *testing.T) {
 		t.Fatalf("Task did not run from role")
 	}
 }
+
+func TestPlaybookRoleAcceptsInlineVars(t *testing.T) {
+	res, _, err := RunCapture("test/site4.yml")
+	if err != nil {
+		t.Fatalf("Unable to run test/site4.yml: %s", err)
+	}
+
+	if len(res.Results) == 0 {
+		t.Fatalf("tasks were not included from the role")
+	}
+
+	d := res.Results[0].Result
+
+	if v, ok := d.Get("stdout"); !ok || v.Read() != "from site4" {
+		t.Fatalf("Task did not run from role: %#v", d)
+	}
+}
