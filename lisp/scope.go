@@ -9,8 +9,8 @@ func init() {
 
 type ScopedVars interface {
 	Get(key string) (Value, bool)
-	Set(key string, val Value)
-	Create(key string, val Value)
+	Set(key string, val Value) Value
+	Create(key string, val Value) Value
 }
 
 type Env map[string]Value

@@ -163,12 +163,14 @@ func (s lispInferredScope) Get(key string) (lisp.Value, bool) {
 	return inferValue(val), true
 }
 
-func (s lispInferredScope) Set(key string, v lisp.Value) {
+func (s lispInferredScope) Set(key string, v lisp.Value) lisp.Value {
 	s.Scope.Set(key, v.Interface())
+	return v
 }
 
-func (s lispInferredScope) Create(key string, v lisp.Value) {
+func (s lispInferredScope) Create(key string, v lisp.Value) lisp.Value {
 	s.Scope.Set(key, v.Interface())
+	return v
 }
 
 var cDollar = []byte(`$`)

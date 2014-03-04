@@ -1,6 +1,7 @@
 package tachyon
 
 import (
+	_ "github.com/smartystreets/goconvey/convey"
 	"path/filepath"
 	"testing"
 	"time"

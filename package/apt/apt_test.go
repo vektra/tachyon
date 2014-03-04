@@ -7,7 +7,19 @@ import (
 	"testing"
 )
 
+var runAptTests = false
+
+func init() {
+	c := exec.Command("which", "apt-cache")
+	c.Run()
+	runAptTests = c.ProcessState.Success()
+}
+
 func TestAptDryRun(t *testing.T) {
+	if !runAptTests {
+		return
+	}
+
 	res, err := tachyon.RunAdhocTask("apt", "pkg=acct dryrun=true")
 	if err != nil {
 		panic(err)
@@ -35,6 +47,10 @@ func removeAcct() {
 }
 
 func TestAptInstallAndRemoves(t *testing.T) {
+	if !runAptTests {
+		return
+	}
+
 	defer removeAcct()
 
 	res, err := tachyon.RunAdhocTask("apt", "pkg=acct")
