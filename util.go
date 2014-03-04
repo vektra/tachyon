@@ -12,7 +12,7 @@ import (
 )
 
 func dbg(format string, args ...interface{}) {
-	fmt.Printf("[DBG] "+format, args...)
+	fmt.Printf("[DBG] "+format+"\n", args...)
 }
 
 func yamlFile(path string, v interface{}) error {

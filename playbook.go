@@ -79,7 +79,7 @@ type playData struct {
 	Vars_files []interface{}
 	Tasks      []TaskData
 	Handlers   []TaskData
-	Roles      []string
+	Roles      []interface{}
 }
 
 var eInvalidPlaybook = errors.New("Invalid playbook yaml")
@@ -182,15 +182,13 @@ func (p *Play) importTasksFile(tasks *Tasks, path string, s Scope, td TaskData) 
 		return err
 	}
 
-	var iv strmap
+	iv := make(strmap)
 
 	if len(parts) == 2 {
 		sm, err := ParseSimpleMap(s, parts[1])
 		if err != nil {
 			return err
 		}
-
-		iv = make(strmap)
 
 		for k, v := range sm {
 			iv[k] = inferString(v)
@@ -233,7 +231,30 @@ func (p *Play) importTasksFile(tasks *Tasks, path string, s Scope, td TaskData) 
 	return nil
 }
 
-func (p *Play) importRole(role string, s Scope) (string, error) {
+func (p *Play) importRole(o interface{}, s Scope) (string, error) {
+	var role string
+
+	ts := NewNestedScope(s)
+	td := TaskData{}
+
+	switch so := o.(type) {
+	case string:
+		role = so
+	case map[interface{}]interface{}:
+		for k, v := range so {
+			sk := k.(string)
+
+			if sk == "role" {
+				role = v.(string)
+			} else {
+				ts.Set(sk, v)
+				td[sk] = v
+			}
+		}
+	default:
+		return "", formatError("role not a map")
+	}
+
 	dir := p.path("roles/" + role)
 
 	if _, err := os.Stat(dir); err != nil {
@@ -243,8 +264,7 @@ func (p *Play) importRole(role string, s Scope) (string, error) {
 	tasks := filepath.Join("roles", role, "tasks", "main.yml")
 
 	if fileExist(p.path(tasks)) {
-		td := TaskData{}
-		err := p.importTasksFile(&p.Tasks, tasks, s, td)
+		err := p.importTasksFile(&p.Tasks, tasks, ts, td)
 		if err != nil {
 			return "", err
 		}
@@ -253,8 +273,7 @@ func (p *Play) importRole(role string, s Scope) (string, error) {
 	handlers := filepath.Join("roles", role, "handlers", "main.yml")
 
 	if fileExist(p.path(handlers)) {
-		td := TaskData{}
-		err := p.importTasksFile(&p.Handlers, handlers, s, td)
+		err := p.importTasksFile(&p.Handlers, handlers, ts, td)
 		if err != nil {
 			return "", err
 		}
