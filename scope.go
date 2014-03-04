@@ -110,7 +110,7 @@ func (n *NestedScope) addVars(vars interface{}) {
 }
 
 func ImportVarsFile(s Scope, path string) error {
-	var fv Vars
+	var fv strmap
 
 	err := yamlFile(path, &fv)
 

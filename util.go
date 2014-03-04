@@ -11,6 +11,10 @@ import (
 	"strings"
 )
 
+func dbg(format string, args ...interface{}) {
+	fmt.Printf("[DBG] "+format, args...)
+}
+
 func yamlFile(path string, v interface{}) error {
 	data, err := ioutil.ReadFile(path)
 

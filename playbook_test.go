@@ -161,3 +161,37 @@ func TestPlaybookRoleTasksInclude(t *testing.T) {
 		t.Fatalf("Task did not run from role")
 	}
 }
+
+func TestPlaybookRoleHandlersInclude(t *testing.T) {
+	res, _, err := RunCapture("test/site1.yml")
+	if err != nil {
+		t.Fatalf("Unable to run test/site1.yml: %s", err)
+	}
+
+	if len(res.Results) == 0 {
+		t.Fatalf("tasks were not included from the role")
+	}
+
+	d := res.Results[1].Result
+
+	if v, ok := d.Get("stdout"); !ok || v.Read() != "in role handler" {
+		t.Fatalf("Task did not run from role")
+	}
+}
+
+func TestPlaybookRoleVarsInclude(t *testing.T) {
+	res, _, err := RunCapture("test/site2.yml")
+	if err != nil {
+		t.Fatalf("Unable to run test/site2.yml: %s", err)
+	}
+
+	if len(res.Results) == 0 {
+		t.Fatalf("tasks were not included from the role")
+	}
+
+	d := res.Results[0].Result
+
+	if v, ok := d.Get("stdout"); !ok || v.Read() != "from role var" {
+		t.Fatalf("Task did not run from role")
+	}
+}

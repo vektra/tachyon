@@ -250,6 +250,25 @@ func (p *Play) importRole(role string, s Scope) (string, error) {
 		}
 	}
 
+	handlers := filepath.Join("roles", role, "handlers", "main.yml")
+
+	if fileExist(p.path(handlers)) {
+		td := TaskData{}
+		err := p.importTasksFile(&p.Handlers, handlers, s, td)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	vars := p.path(filepath.Join("roles", role, "vars", "main.yml"))
+
+	if fileExist(vars) {
+		err := ImportVarsFile(p.Vars, vars)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	return role, nil
 }
 
