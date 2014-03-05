@@ -24,6 +24,7 @@ type Play struct {
 	Roles      []string
 
 	baseDir string
+	roleDir string
 }
 
 type Playbook struct {
@@ -173,19 +174,30 @@ func (p *Play) importTasksFile(tasks *Tasks, path string, s Scope, td TaskData) 
 		return err
 	}
 
-	filePath := p.path(path)
+	args := ""
+
+	if len(parts) == 2 {
+		args = parts[1]
+	}
+
+	filePath := p.path(path, "tasks")
+
+	return p.runTasksFile(tasks, filePath, args, s, td)
+}
+
+func (p *Play) runTasksFile(tasks *Tasks, filePath string, args string, s Scope, td TaskData) error {
 
 	var tds []TaskData
 
-	err = yamlFile(filePath, &tds)
+	err := yamlFile(filePath, &tds)
 	if err != nil {
 		return err
 	}
 
 	iv := make(strmap)
 
-	if len(parts) == 2 {
-		sm, err := ParseSimpleMap(s, parts[1])
+	if args != "" {
+		sm, err := ParseSimpleMap(s, args)
 		if err != nil {
 			return err
 		}
@@ -221,7 +233,7 @@ func (p *Play) importTasksFile(tasks *Tasks, path string, s Scope, td TaskData) 
 				return err
 			}
 		} else {
-			task := &Task{data: x, Play: p, File: path}
+			task := &Task{data: x, Play: p, File: filePath}
 			task.Init()
 			task.IncludeVars = iv
 			*tasks = append(*tasks, task)
@@ -270,7 +282,7 @@ func (p *Play) importRole(o interface{}, s Scope) (string, error) {
 		}
 	}
 
-	dir := p.path("roles/" + role)
+	dir := p.path("roles/"+role, "roles")
 
 	if _, err := os.Stat(dir); err != nil {
 		return "", fmt.Errorf("No role named %s available", role)
@@ -278,23 +290,32 @@ func (p *Play) importRole(o interface{}, s Scope) (string, error) {
 
 	tasks := filepath.Join("roles", role, "tasks", "main.yml")
 
-	if fileExist(p.path(tasks)) {
-		err := p.importTasksFile(&p.Tasks, tasks, ts, td)
+	base := p.baseDir
+
+	p.roleDir = dir
+	defer func() {
+		p.roleDir = ""
+	}()
+
+	taskPath := filepath.Join(base, tasks)
+
+	if fileExist(taskPath) {
+		err := p.runTasksFile(&p.Tasks, taskPath, "", ts, td)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	handlers := filepath.Join("roles", role, "handlers", "main.yml")
+	handlers := filepath.Join(base, "roles", role, "handlers", "main.yml")
 
-	if fileExist(p.path(handlers)) {
-		err := p.importTasksFile(&p.Handlers, handlers, ts, td)
+	if fileExist(handlers) {
+		err := p.runTasksFile(&p.Handlers, handlers, "", ts, td)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	vars := p.path(filepath.Join("roles", role, "vars", "main.yml"))
+	vars := filepath.Join(base, "roles", role, "vars", "main.yml")
 
 	if fileExist(vars) {
 		err := ImportVarsFile(p.Vars, vars)
@@ -326,7 +347,7 @@ func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 	for _, file := range play.VarsFiles {
 		switch file := file.(type) {
 		case string:
-			ImportVarsFile(play.Vars, play.path(file))
+			ImportVarsFile(play.Vars, play.path(file, "vars"))
 			break
 		case []interface{}:
 			for _, ent := range file {
@@ -336,7 +357,7 @@ func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 					continue
 				}
 
-				epath := play.path(exp)
+				epath := play.path(exp, "vars")
 
 				if _, err := os.Stat(epath); err == nil {
 					err = ImportVarsFile(play.Vars, epath)
@@ -377,7 +398,11 @@ func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 	return &play, nil
 }
 
-func (play *Play) path(file string) string {
+func (play *Play) path(file, typ string) string {
+	if play.roleDir != "" {
+		return path.Join(play.roleDir, typ, file)
+	}
+
 	return path.Join(play.baseDir, file)
 }
 
