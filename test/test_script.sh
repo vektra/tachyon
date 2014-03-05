@@ -1,1 +1,1 @@
-echo "in blah"
+echo "hello script"
