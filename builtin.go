@@ -235,8 +235,27 @@ func (cmd *CopyCmd) Run(env *Environment, args string) (*Result, error) {
 	return WrapResult(true, rd), nil
 }
 
+type ScriptCmd struct{}
+
+func (cmd *ScriptCmd) Run(env *Environment, args string) (*Result, error) {
+	script := args
+
+	parts, err := shlex.Split(args)
+	if err == nil {
+		script = parts[0]
+	}
+
+	_, err = os.Stat(script)
+	if err != nil {
+		return nil, err
+	}
+
+	return runCmd(env, []string{"sh", args})
+}
+
 func init() {
 	RegisterCommand("command", &CommandCmd{})
 	RegisterCommand("shell", &ShellCmd{})
 	RegisterCommand("copy", &CopyCmd{})
+	RegisterCommand("script", &ScriptCmd{})
 }

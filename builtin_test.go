@@ -216,3 +216,18 @@ func TestShellSeesNonZeroRC(t *testing.T) {
 		t.Errorf("stdout was not captured")
 	}
 }
+
+func TestScriptExecutesRelative(t *testing.T) {
+	res, err := RunAdhocTask("script", "test/test_script.sh")
+	if err != nil {
+		panic(err)
+	}
+
+	if res.Data["rc"].Read().(int) != 0 {
+		t.Errorf("return code not captured")
+	}
+
+	if res.Data["stdout"].Read().(string) == "hello script" {
+		t.Errorf("stdout was not captured")
+	}
+}
