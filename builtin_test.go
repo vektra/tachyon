@@ -212,7 +212,7 @@ func TestShellSeesNonZeroRC(t *testing.T) {
 		t.Errorf("return code not captured")
 	}
 
-	if res.Data["stdout"].Read().(string) == "hello dear" {
+	if res.Data["stdout"].Read().(string) != "" {
 		t.Errorf("stdout was not captured")
 	}
 }

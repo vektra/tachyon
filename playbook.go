@@ -50,6 +50,8 @@ func NewPlaybook(env *Environment, p string) (*Playbook, error) {
 
 	pb.Vars.Set("playbook_dir", baseDir)
 
+	defer env.SetPaths(env.SetPaths(SimplePath{baseDir}))
+
 	plays, err := pb.LoadPlays(p, pb.Vars)
 	if err != nil {
 		return nil, err
@@ -132,7 +134,7 @@ func (pb *Playbook) LoadPlays(fpath string, s Scope) ([]*Play, error) {
 
 			plays = append(plays, sub...)
 		} else {
-			play, err := parsePlay(s, fpath, pb.baseDir, &item)
+			play, err := parsePlay(pb.Env, s, fpath, pb.baseDir, &item)
 
 			if err != nil {
 				return nil, err
@@ -149,10 +151,10 @@ func formatError(where string) error {
 	return fmt.Errorf("Invalid playbook yaml: %s", where)
 }
 
-func (p *Play) importTasks(tasks *Tasks, file string, s Scope, tds []TaskData) error {
+func (p *Play) importTasks(env *Environment, tasks *Tasks, file string, s Scope, tds []TaskData) error {
 	for _, x := range tds {
 		if path, ok := x["include"]; ok {
-			err := p.importTasksFile(tasks, path.(string), s, x)
+			err := p.importTasksFile(env, tasks, path.(string), s, x)
 			if err != nil {
 				return err
 			}
@@ -166,7 +168,7 @@ func (p *Play) importTasks(tasks *Tasks, file string, s Scope, tds []TaskData) e
 	return nil
 }
 
-func (p *Play) importTasksFile(tasks *Tasks, path string, s Scope, td TaskData) error {
+func (p *Play) importTasksFile(env *Environment, tasks *Tasks, path string, s Scope, td TaskData) error {
 	parts := strings.SplitN(path, " ", 2)
 
 	path, err := ExpandVars(s, parts[0])
@@ -180,12 +182,12 @@ func (p *Play) importTasksFile(tasks *Tasks, path string, s Scope, td TaskData) 
 		args = parts[1]
 	}
 
-	filePath := p.path(path, "tasks")
+	filePath := env.Paths.Task(path)
 
-	return p.runTasksFile(tasks, filePath, args, s, td)
+	return p.runTasksFile(env, tasks, filePath, args, s, td)
 }
 
-func (p *Play) runTasksFile(tasks *Tasks, filePath string, args string, s Scope, td TaskData) error {
+func (p *Play) runTasksFile(env *Environment, tasks *Tasks, filePath string, args string, s Scope, td TaskData) error {
 
 	var tds []TaskData
 
@@ -228,7 +230,7 @@ func (p *Play) runTasksFile(tasks *Tasks, filePath string, args string, s Scope,
 
 	for _, x := range tds {
 		if spath, ok := x["include"]; ok {
-			err := p.importTasksFile(tasks, spath.(string), s, x)
+			err := p.importTasksFile(env, tasks, spath.(string), s, x)
 			if err != nil {
 				return err
 			}
@@ -243,7 +245,7 @@ func (p *Play) runTasksFile(tasks *Tasks, filePath string, args string, s Scope,
 	return nil
 }
 
-func (p *Play) importRole(o interface{}, s Scope) (string, error) {
+func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, error) {
 	var role string
 
 	ts := NewNestedScope(s)
@@ -282,34 +284,36 @@ func (p *Play) importRole(o interface{}, s Scope) (string, error) {
 		}
 	}
 
-	dir := p.path("roles/"+role, "roles")
+	dir := env.Paths.Role(role)
 
 	if _, err := os.Stat(dir); err != nil {
 		return "", fmt.Errorf("No role named %s available", role)
 	}
 
-	tasks := filepath.Join("roles", role, "tasks", "main.yml")
-
 	base := p.baseDir
+
+	cur := env.Paths
+
+	defer env.SetPaths(env.SetPaths(SeparatePaths{cur.Role(role)}))
 
 	p.roleDir = dir
 	defer func() {
 		p.roleDir = ""
 	}()
 
-	taskPath := filepath.Join(base, tasks)
+	taskPath := env.Paths.Task("main.yml")
 
 	if fileExist(taskPath) {
-		err := p.runTasksFile(&p.Tasks, taskPath, "", ts, td)
+		err := p.runTasksFile(env, &p.Tasks, taskPath, "", ts, td)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	handlers := filepath.Join(base, "roles", role, "handlers", "main.yml")
+	handlers := env.Paths.Handler("main.yml")
 
 	if fileExist(handlers) {
-		err := p.runTasksFile(&p.Handlers, handlers, "", ts, td)
+		err := p.runTasksFile(env, &p.Handlers, handlers, "", ts, td)
 		if err != nil {
 			return "", err
 		}
@@ -327,7 +331,7 @@ func (p *Play) importRole(o interface{}, s Scope) (string, error) {
 	return role, nil
 }
 
-func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
+func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play, error) {
 	var play Play
 
 	if m.Hosts == "" {
@@ -347,7 +351,7 @@ func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 	for _, file := range play.VarsFiles {
 		switch file := file.(type) {
 		case string:
-			ImportVarsFile(play.Vars, play.path(file, "vars"))
+			ImportVarsFile(play.Vars, env.Paths.Vars(file))
 			break
 		case []interface{}:
 			for _, ent := range file {
@@ -357,7 +361,7 @@ func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 					continue
 				}
 
-				epath := play.path(exp, "vars")
+				epath := env.Paths.Vars(exp)
 
 				if _, err := os.Stat(epath); err == nil {
 					err = ImportVarsFile(play.Vars, epath)
@@ -373,21 +377,21 @@ func parsePlay(s Scope, file, dir string, m *playData) (*Play, error) {
 	}
 
 	if len(m.Tasks) > 0 {
-		err := play.importTasks(&play.Tasks, file, s, m.Tasks)
+		err := play.importTasks(env, &play.Tasks, file, s, m.Tasks)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if len(m.Handlers) > 0 {
-		err := play.importTasks(&play.Handlers, file, s, m.Tasks)
+		err := play.importTasks(env, &play.Handlers, file, s, m.Tasks)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	for _, role := range m.Roles {
-		name, err := play.importRole(role, s)
+		name, err := play.importRole(env, role, s)
 		if err != nil {
 			return nil, err
 		}

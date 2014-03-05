@@ -11,6 +11,8 @@ type Environment struct {
 	report Reporter
 	config *Config
 	tmpDir string
+
+	Paths Paths
 }
 
 func NewEnv(s Scope, cfg *Config) *Environment {
@@ -40,4 +42,10 @@ func (e *Environment) TempFile(prefix string) (*os.File, error) {
 
 func (e *Environment) Cleanup() {
 	os.RemoveAll(e.tmpDir)
+}
+
+func (e *Environment) SetPaths(n Paths) Paths {
+	cur := e.Paths
+	e.Paths = n
+	return cur
 }
