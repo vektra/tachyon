@@ -24,7 +24,6 @@ type Play struct {
 	Roles      []string
 
 	baseDir string
-	roleDir string
 }
 
 type Playbook struct {
@@ -60,19 +59,6 @@ func NewPlaybook(env *Environment, p string) (*Playbook, error) {
 	pb.Plays = plays
 
 	return pb, nil
-}
-
-func (p *Play) processTasks(datas []TaskData) Tasks {
-	tasks := make(Tasks, len(datas))
-
-	for idx, data := range datas {
-		task := &Task{data: data, Play: p}
-		task.Init()
-
-		tasks[idx] = task
-	}
-
-	return tasks
 }
 
 type playData struct {
@@ -160,7 +146,7 @@ func (p *Play) importTasks(env *Environment, tasks *Tasks, file string, s Scope,
 			}
 		} else {
 			task := &Task{data: x, Play: p, File: file}
-			task.Init()
+			task.Init(env)
 			*tasks = append(*tasks, task)
 		}
 	}
@@ -236,7 +222,7 @@ func (p *Play) runTasksFile(env *Environment, tasks *Tasks, filePath string, arg
 			}
 		} else {
 			task := &Task{data: x, Play: p, File: filePath}
-			task.Init()
+			task.Init(env)
 			task.IncludeVars = iv
 			*tasks = append(*tasks, task)
 		}
@@ -295,11 +281,6 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 	cur := env.Paths
 
 	defer env.SetPaths(env.SetPaths(SeparatePaths{cur.Role(role)}))
-
-	p.roleDir = dir
-	defer func() {
-		p.roleDir = ""
-	}()
 
 	taskPath := env.Paths.Task("main.yml")
 
@@ -400,14 +381,6 @@ func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play,
 	}
 
 	return &play, nil
-}
-
-func (play *Play) path(file, typ string) string {
-	if play.roleDir != "" {
-		return path.Join(play.roleDir, typ, file)
-	}
-
-	return path.Join(play.baseDir, file)
 }
 
 func boolify(str string) bool {

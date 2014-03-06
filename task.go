@@ -17,6 +17,7 @@ type Task struct {
 	Vars strmap
 
 	IncludeVars strmap
+	Paths       Paths
 }
 
 type TaskData map[string]interface{}
@@ -35,7 +36,7 @@ func AdhocTask(cmd, args string) *Task {
 var cOptions = []string{"name", "action", "notify", "async", "poll",
 	"when", "future", "register"}
 
-func (t *Task) Init() error {
+func (t *Task) Init(env *Environment) error {
 	t.Vars = make(strmap)
 
 	for k, v := range t.data {
@@ -78,6 +79,8 @@ func (t *Task) Init() error {
 			t.args = parts[1]
 		}
 	}
+
+	t.Paths = env.Paths
 
 	return nil
 }

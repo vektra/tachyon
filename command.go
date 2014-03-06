@@ -44,8 +44,13 @@ func NewResult(changed bool) *Result {
 	return &Result{changed, make(ResultData)}
 }
 
+type CommandEnv struct {
+	Env   *Environment
+	Paths Paths
+}
+
 type Command interface {
-	Run(env *Environment, args string) (*Result, error)
+	Run(env *CommandEnv, args string) (*Result, error)
 }
 
 type Commands map[string]reflect.Type

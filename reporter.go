@@ -54,6 +54,10 @@ func (c *CLIReporter) StartTask(task *Task, cmd Command, args string) {
 }
 
 func (c *CLIReporter) FinishTask(task *Task, res *Result) {
+	if res == nil {
+		return
+	}
+
 	fmt.Fprintf(c.out, "  - result:\n")
 
 	if sy, err := indentedYAML(res.Data, "      "); err == nil {

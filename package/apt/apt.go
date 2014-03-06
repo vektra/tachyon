@@ -17,7 +17,7 @@ type Apt struct {
 var installed = regexp.MustCompile(`Installed: ([^\n]+)`)
 var candidate = regexp.MustCompile(`Candidate: ([^\n]+)`)
 
-func (a *Apt) Run(env *tachyon.Environment, args string) (*tachyon.Result, error) {
+func (a *Apt) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error) {
 	state := a.State
 	if state == "" {
 		state = "present"

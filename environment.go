@@ -26,6 +26,8 @@ func NewEnv(s Scope, cfg *Config) *Environment {
 		e.tmpDir = d
 	}
 
+	e.Paths = SimplePath{"."}
+
 	return e
 }
 

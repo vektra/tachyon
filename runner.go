@@ -119,7 +119,9 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 		return nil, err
 	}
 
-	return obj.Run(env, str)
+	ce := &CommandEnv{env, env.Paths}
+
+	return obj.Run(ce, str)
 }
 
 type PriorityScope struct {
@@ -172,9 +174,11 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 
 	r.report.StartTask(task, cmd, str)
 
+	ce := &CommandEnv{env, task.Paths}
+
 	if name := task.Future(); name != "" {
 		future := NewFuture(start, task, func() (*Result, error) {
-			return cmd.Run(env, str)
+			return cmd.Run(ce, str)
 		})
 
 		fs.AddFuture(name, future)
@@ -187,16 +191,22 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 		asyncAction.Init(r)
 
 		go func() {
-			asyncAction.Finish(cmd.Run(env, str))
+			asyncAction.Finish(cmd.Run(ce, str))
 		}()
 	} else {
-		res, err := cmd.Run(env, str)
+		res, err := cmd.Run(ce, str)
 
 		if name := task.Register(); name != "" {
 			fs.Set(name, res)
 		}
 
 		runtime := time.Since(start)
+
+		if err != nil {
+			res = NewResult(false)
+			res.Data.Set("failed", true)
+			res.Data.Set("error", err.Error())
+		}
 
 		r.Results = append(r.Results, RunResult{task, res, runtime})
 

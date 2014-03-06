@@ -92,12 +92,12 @@ func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
 	return bout.String(), berr.String(), err
 }
 
-func runCmd(env *Environment, parts []string) (*Result, error) {
+func runCmd(env *CommandEnv, parts []string) (*Result, error) {
 	c := exec.Command(parts[0], parts[1:]...)
 
 	rc := 0
 
-	stdout, stderr, err := captureCmd(c, env.config.ShowCommandOutput)
+	stdout, stderr, err := captureCmd(c, env.Env.config.ShowCommandOutput)
 	if err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
 			rc = 1
@@ -117,7 +117,7 @@ func runCmd(env *Environment, parts []string) (*Result, error) {
 
 type CommandCmd struct{}
 
-func (cmd *CommandCmd) Run(env *Environment, args string) (*Result, error) {
+func (cmd *CommandCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	parts, err := shlex.Split(args)
 
 	if err != nil {
@@ -129,7 +129,7 @@ func (cmd *CommandCmd) Run(env *Environment, args string) (*Result, error) {
 
 type ShellCmd struct{}
 
-func (cmd *ShellCmd) Run(env *Environment, args string) (*Result, error) {
+func (cmd *ShellCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	return runCmd(env, []string{"sh", "-c", args})
 }
 
@@ -153,7 +153,7 @@ func md5file(path string) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-func (cmd *CopyCmd) Run(env *Environment, args string) (*Result, error) {
+func (cmd *CopyCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	input, err := os.Open(cmd.Src)
 
 	if err != nil {
@@ -237,7 +237,7 @@ func (cmd *CopyCmd) Run(env *Environment, args string) (*Result, error) {
 
 type ScriptCmd struct{}
 
-func (cmd *ScriptCmd) Run(env *Environment, args string) (*Result, error) {
+func (cmd *ScriptCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	script := args
 
 	parts, err := shlex.Split(args)
@@ -245,12 +245,16 @@ func (cmd *ScriptCmd) Run(env *Environment, args string) (*Result, error) {
 		script = parts[0]
 	}
 
-	_, err = os.Stat(script)
+	path := env.Paths.File(script)
+
+	_, err = os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return runCmd(env, []string{"sh", args})
+	runArgs := append([]string{"sh", path}, parts[1:]...)
+
+	return runCmd(env, runArgs)
 }
 
 func init() {

@@ -15,14 +15,14 @@ type DownloadCmd struct {
 	Sha256sum string `tachyon:"sha256sum"`
 }
 
-func (d *DownloadCmd) Run(env *Environment, args string) (*Result, error) {
+func (d *DownloadCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	destPath := d.Dest
 
 	var out *os.File
 	var err error
 
 	if destPath == "" {
-		out, err = env.TempFile("download")
+		out, err = env.Env.TempFile("download")
 		destPath = out.Name()
 
 		if err != nil {
