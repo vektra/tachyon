@@ -11,6 +11,7 @@ import (
 type Apt struct {
 	Pkg   string `tachyon:"pkg,required"`
 	State string `tachyon:"state"`
+	Cache string `tachyon:"cache"`
 	Dry   bool   `tachyon:"dryrun"`
 }
 
@@ -21,6 +22,13 @@ func (a *Apt) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error)
 	state := a.State
 	if state == "" {
 		state = "present"
+	}
+
+	if a.Cache == "update" {
+		_, err := exec.Command("apt-get", "update").CombinedOutput()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	out, err := exec.Command("apt-cache", "policy", a.Pkg).CombinedOutput()

@@ -160,6 +160,67 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 		}
 	}
 
+	if items := task.Items(); items != nil {
+		var results []*Result
+
+		anyChanged := false
+
+		for _, item := range items {
+			ns := NewNestedScope(ps)
+			ns.Set("item", item)
+
+			str, err := ExpandVars(ns, task.Args())
+
+			if err != nil {
+				return err
+			}
+
+			cmd, err := MakeCommand(ns, task, str)
+
+			if err != nil {
+				return err
+			}
+
+			r.report.StartTask(task, cmd, str)
+
+			ce := &CommandEnv{env, task.Paths}
+
+			res, err := cmd.Run(ce, str)
+
+			if err != nil {
+				res = NewResult(false)
+				res.Data.Set("failed", true)
+				res.Data.Set("error", err.Error())
+			}
+
+			if res.Changed {
+				anyChanged = true
+			}
+
+			results = append(results, res)
+		}
+
+		res := NewResult(anyChanged)
+		res.Data.Set("items", len(items))
+		res.Data.Set("results", results)
+
+		if name := task.Register(); name != "" {
+			fs.Set(name, res)
+		}
+
+		runtime := time.Since(start)
+
+		r.Results = append(r.Results, RunResult{task, res, runtime})
+
+		r.report.FinishTask(task, res)
+
+		for _, x := range task.Notify() {
+			r.AddNotify(x)
+		}
+
+		return nil
+	}
+
 	str, err := ExpandVars(ps, task.Args())
 
 	if err != nil {
