@@ -63,16 +63,14 @@ func mapToStruct(m map[string]interface{}, tag string, v interface{}) error {
 	return nil
 }
 
-type SimpleMap map[string]string
-
-func ParseSimpleMap(s Scope, args string) (SimpleMap, error) {
+func ParseSimpleMap(s Scope, args string) (Vars, error) {
 	args, err := ExpandVars(s, args)
 
 	if err != nil {
 		return nil, err
 	}
 
-	sm := make(SimpleMap)
+	sm := make(Vars)
 
 	parts, err := shlex.Split(args)
 
@@ -84,9 +82,9 @@ func ParseSimpleMap(s Scope, args string) (SimpleMap, error) {
 		ec := strings.SplitN(part, "=", 2)
 
 		if len(ec) == 2 {
-			sm[ec[0]] = ec[1]
+			sm[ec[0]] = Any(inferString(ec[1]))
 		} else {
-			sm[part] = "true"
+			sm[part] = Any(true)
 		}
 	}
 

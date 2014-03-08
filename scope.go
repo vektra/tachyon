@@ -8,19 +8,27 @@ type Value interface {
 	Read() interface{}
 }
 
-type Any struct {
+type AnyValue struct {
 	v interface{}
 }
 
-func (a Any) Read() interface{} {
+func Any(v interface{}) AnyValue {
+	if a, ok := v.(AnyValue); ok {
+		return a
+	}
+
+	return AnyValue{v}
+}
+
+func (a AnyValue) Read() interface{} {
 	return a.v
 }
 
-func (a Any) GetYAML() (string, interface{}) {
+func (a AnyValue) GetYAML() (string, interface{}) {
 	return "", a.v
 }
 
-func (a Any) SetYAML(tag string, v interface{}) bool {
+func (a AnyValue) SetYAML(tag string, v interface{}) bool {
 	a.v = v
 	return true
 }
@@ -75,7 +83,7 @@ func (n *NestedScope) Get(key string) (v Value, ok bool) {
 }
 
 func (n *NestedScope) Set(key string, v interface{}) {
-	n.Vars[key] = Any{v}
+	n.Vars[key] = Any(v)
 }
 
 func (n *NestedScope) Empty() bool {
@@ -110,7 +118,7 @@ func (n *NestedScope) addVars(vars interface{}) {
 }
 
 func ImportVarsFile(s Scope, path string) error {
-	var fv strmap
+	var fv map[string]string
 
 	err := yamlFile(path, &fv)
 
@@ -119,7 +127,7 @@ func ImportVarsFile(s Scope, path string) error {
 	}
 
 	for k, v := range fv {
-		s.Set(k, v)
+		s.Set(k, inferString(v))
 	}
 
 	return nil

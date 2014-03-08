@@ -125,14 +125,14 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 }
 
 type PriorityScope struct {
-	task strmap
+	task Vars
 	rest Scope
 }
 
 func (p *PriorityScope) Get(key string) (Value, bool) {
 	if p.task != nil {
 		if v, ok := p.task[key]; ok {
-			return Any{v}, true
+			return Any(v), true
 		}
 	}
 

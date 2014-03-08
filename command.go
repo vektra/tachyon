@@ -10,7 +10,7 @@ import (
 type ResultData map[string]Value
 
 func (rd ResultData) Set(key string, v interface{}) {
-	rd[key] = Any{v}
+	rd[key] = Any(v)
 }
 
 func (rd ResultData) Get(key string) interface{} {
@@ -33,7 +33,7 @@ func (r *Result) Get(key string) (Value, bool) {
 }
 
 func (r *Result) Add(key string, v interface{}) {
-	r.Data[key] = Any{v}
+	r.Data[key] = Any(v)
 }
 
 func WrapResult(changed bool, data ResultData) *Result {
@@ -90,7 +90,7 @@ func MakeCommand(s Scope, task *Task, args string) (Command, error) {
 				return nil, err
 			}
 
-			sm[ik] = exp
+			sm[ik] = Any(inferString(exp))
 		}
 
 		e := obj.Elem()
@@ -122,9 +122,9 @@ func MakeCommand(s Scope, task *Task, args string) (Command, error) {
 				ef := e.Field(i)
 
 				if _, ok := ef.Interface().(bool); ok {
-					e.Field(i).Set(reflect.ValueOf(boolify(val)))
+					e.Field(i).Set(reflect.ValueOf(val))
 				} else {
-					e.Field(i).Set(reflect.ValueOf(fmt.Sprintf("%v", val)))
+					e.Field(i).Set(reflect.ValueOf(fmt.Sprintf("%v", val.Read())))
 				}
 			} else if required {
 				return nil, fmt.Errorf("Missing value for %s", f.Name)

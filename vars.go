@@ -1,10 +1,6 @@
 package tachyon
 
-import (
-	"strconv"
-)
-
-type Vars map[string]Any
+type Vars map[string]AnyValue
 
 func (v Vars) Copy() Vars {
 	o := make(Vars)
@@ -20,11 +16,7 @@ func VarsFromStrMap(sm map[string]string) Vars {
 	o := make(Vars)
 
 	for k, v := range sm {
-		if i, err := strconv.ParseInt(k, 0, 0); err != nil {
-			o[k] = Any{i}
-		} else {
-			o[k] = Any{v}
-		}
+		o[k] = Any(inferString(v))
 	}
 
 	return o

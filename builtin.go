@@ -189,9 +189,9 @@ func (cmd *CopyCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	}
 
 	rd := ResultData{
-		"md5sum": Any{hex.Dump(srcDigest)},
-		"src":    Any{cmd.Src},
-		"dest":   Any{dest},
+		"md5sum": Any(hex.Dump(srcDigest)),
+		"src":    Any(cmd.Src),
+		"dest":   Any(dest),
 	}
 
 	if dstDigest != nil && bytes.Equal(srcDigest, dstDigest) {

@@ -5,8 +5,6 @@ import (
 	"strings"
 )
 
-type strmap map[string]interface{}
-
 type Task struct {
 	Play *Play
 	File string
@@ -14,9 +12,9 @@ type Task struct {
 	data TaskData
 	cmd  string
 	args string
-	Vars strmap
+	Vars Vars
 
-	IncludeVars strmap
+	IncludeVars Vars
 	Paths       Paths
 }
 
@@ -29,7 +27,7 @@ func AdhocTask(cmd, args string) *Task {
 		cmd:  cmd,
 		args: args,
 		data: TaskData{"name": "adhoc"},
-		Vars: make(strmap),
+		Vars: make(Vars),
 	}
 }
 
@@ -37,7 +35,7 @@ var cOptions = []string{"name", "action", "notify", "async", "poll",
 	"when", "future", "register"}
 
 func (t *Task) Init(env *Environment) error {
-	t.Vars = make(strmap)
+	t.Vars = make(Vars)
 
 	for k, v := range t.data {
 		found := false
@@ -57,7 +55,7 @@ func (t *Task) Init(env *Environment) error {
 			t.cmd = k
 			if m, ok := v.(map[interface{}]interface{}); ok {
 				for ik, iv := range m {
-					t.Vars[fmt.Sprintf("%v", ik)] = iv
+					t.Vars[fmt.Sprintf("%v", ik)] = Any(iv)
 				}
 			} else {
 				t.args = fmt.Sprintf("%v", v)

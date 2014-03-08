@@ -63,7 +63,7 @@ func NewPlaybook(env *Environment, p string) (*Playbook, error) {
 
 type playData struct {
 	Include    string
-	Vars       strmap
+	Vars       map[string]string
 	Hosts      string
 	Vars_files []interface{}
 	Tasks      []TaskData
@@ -182,7 +182,7 @@ func (p *Play) runTasksFile(env *Environment, tasks *Tasks, filePath string, arg
 		return err
 	}
 
-	iv := make(strmap)
+	iv := make(Vars)
 
 	if args != "" {
 		sm, err := ParseSimpleMap(s, args)
@@ -191,7 +191,7 @@ func (p *Play) runTasksFile(env *Environment, tasks *Tasks, filePath string, arg
 		}
 
 		for k, v := range sm {
-			iv[k] = inferString(v)
+			iv[k] = v
 		}
 	}
 
@@ -199,7 +199,7 @@ func (p *Play) runTasksFile(env *Environment, tasks *Tasks, filePath string, arg
 	if xvars, ok := td["vars"]; ok {
 		if cast, ok := xvars.(map[interface{}]interface{}); ok {
 			for gk, gv := range cast {
-				iv[gk.(string)] = gv
+				iv[gk.(string)] = Any(gv)
 			}
 		}
 	}
@@ -210,7 +210,7 @@ func (p *Play) runTasksFile(env *Environment, tasks *Tasks, filePath string, arg
 		case "include", "vars":
 			continue
 		default:
-			iv[k] = v
+			iv[k] = Any(v)
 		}
 	}
 
@@ -266,7 +266,7 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 		}
 
 		for k, v := range sm {
-			td[k] = inferString(v)
+			td[k] = v
 		}
 	}
 
@@ -323,7 +323,7 @@ func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play,
 	play.Vars = NewNestedScope(s)
 
 	for sk, iv := range m.Vars {
-		play.Vars.Set(sk, iv)
+		play.Vars.Set(sk, inferString(iv))
 	}
 
 	play.VarsFiles = m.Vars_files
