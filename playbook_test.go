@@ -1,7 +1,6 @@
 package tachyon
 
 import (
-	_ "github.com/smartystreets/goconvey/convey"
 	"path/filepath"
 	"testing"
 	"time"
@@ -129,10 +128,7 @@ func TestPlaybookTaskIncludesCanHaveVars(t *testing.T) {
 
 	d := res.Results[0].Result
 
-	dbg("res: %#v", d)
-
 	if v, ok := d.Get("stdout"); !ok || v.Read() != "oscar" {
-		dbg("v: %#v", v)
 		t.Fatalf("A variable was not passed into the included file")
 	}
 

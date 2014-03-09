@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"github.com/vektra/tachyon"
 	"os"
-	"os/exec"
 	"regexp"
 )
 
 type Apt struct {
-	Pkg   string `tachyon:"pkg,required"`
+	Pkg   string `tachyon:"pkg"`
 	State string `tachyon:"state"`
 	Cache string `tachyon:"cache"`
 	Dry   bool   `tachyon:"dryrun"`
@@ -25,18 +24,25 @@ func (a *Apt) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error)
 	}
 
 	if a.Cache == "update" {
-		_, err := exec.Command("apt-get", "update").CombinedOutput()
+		_, err := tachyon.RunCommand(env, "apt-get", "update")
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	out, err := exec.Command("apt-cache", "policy", a.Pkg).CombinedOutput()
+	if a.Pkg == "" {
+		simp := tachyon.NewResult(true)
+		simp.Add("cache", "updated")
+
+		return simp, nil
+	}
+
+	out, err := tachyon.RunCommand(env, "apt-cache", "policy", a.Pkg)
 	if err != nil {
 		return nil, err
 	}
 
-	res := installed.FindSubmatch(out)
+	res := installed.FindSubmatch(out.Stdout)
 	if res == nil {
 		return nil, fmt.Errorf("No package '%s' available")
 	}
@@ -46,7 +52,7 @@ func (a *Apt) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error)
 		curVer = ""
 	}
 
-	res = candidate.FindSubmatch(out)
+	res = candidate.FindSubmatch(out.Stdout)
 	if res == nil {
 		return nil, fmt.Errorf("Error parsing apt-cache output")
 	}
@@ -62,8 +68,7 @@ func (a *Apt) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error)
 
 		rd.Set("removed", curVer)
 
-		c := exec.Command("apt-get", "remove", "-y", a.Pkg)
-		out, err = c.CombinedOutput()
+		_, err = tachyon.RunCommand(env, "apt-get", "remove", "-y", a.Pkg)
 
 		if err != nil {
 			return nil, err
@@ -87,9 +92,7 @@ func (a *Apt) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error)
 
 	e := append(os.Environ(), "DEBIAN_FRONTEND=noninteractive", "DEBIAN_PRIORITY=critical")
 
-	c := exec.Command("apt-get", "install", "-y", a.Pkg)
-	c.Env = e
-	out, err = c.CombinedOutput()
+	_, err = tachyon.RunCommandInEnv(env, e, "apt-get", "install", "-y", a.Pkg)
 	if err != nil {
 		return nil, err
 	}

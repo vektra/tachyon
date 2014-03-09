@@ -122,7 +122,7 @@ func MakeCommand(s Scope, task *Task, args string) (Command, error) {
 				ef := e.Field(i)
 
 				if _, ok := ef.Interface().(bool); ok {
-					e.Field(i).Set(reflect.ValueOf(val))
+					e.Field(i).Set(reflect.ValueOf(val.Read()))
 				} else {
 					e.Field(i).Set(reflect.ValueOf(fmt.Sprintf("%v", val.Read())))
 				}

@@ -8,6 +8,7 @@ import (
 type Options struct {
 	Vars       map[string]string `short:"s" long:"set" description:"Set a variable"`
 	ShowOutput bool              `short:"o" long:"output" description:"Show command output"`
+	Host       string            `short:"h" long:"host" description:"Run the playbook on another host"`
 }
 
 func Main(args []string) int {
@@ -23,6 +24,10 @@ func Main(args []string) int {
 	if len(args) != 2 {
 		fmt.Printf("Usage: tachyon [options] <playbook>\n")
 		return 1
+	}
+
+	if opts.Host != "" {
+		return runOnHost(&opts, args)
 	}
 
 	cfg := &Config{ShowCommandOutput: opts.ShowOutput}
@@ -51,4 +56,8 @@ func Main(args []string) int {
 	}
 
 	return 0
+}
+
+func runOnHost(opts *Options, args []string) int {
+	return 1
 }

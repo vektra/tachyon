@@ -16,11 +16,11 @@ import (
 	"syscall"
 )
 
-func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
+func captureCmd(c *exec.Cmd, show bool) ([]byte, []byte, error) {
 	stdout, err := c.StdoutPipe()
 
 	if err != nil {
-		return "", "", err
+		return nil, nil, err
 	}
 
 	defer stdout.Close()
@@ -57,7 +57,7 @@ func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
 
 	if err != nil {
 		stdout.Close()
-		return "", "", err
+		return nil, nil, err
 	}
 
 	defer stderr.Close()
@@ -89,11 +89,21 @@ func captureCmd(c *exec.Cmd, show bool) (string, string, error) {
 
 	err = c.Wait()
 
-	return bout.String(), berr.String(), err
+	return bout.Bytes(), berr.Bytes(), err
 }
 
-func runCmd(env *CommandEnv, parts []string) (*Result, error) {
+type CommandResult struct {
+	ReturnCode int
+	Stdout     []byte
+	Stderr     []byte
+}
+
+func RunCommand(env *CommandEnv, parts ...string) (*CommandResult, error) {
 	c := exec.Command(parts[0], parts[1:]...)
+
+	if env.Env.config.ShowCommandOutput {
+		fmt.Printf("RUN: %s\n", strings.Join(parts, " "))
+	}
 
 	rc := 0
 
@@ -106,11 +116,42 @@ func runCmd(env *CommandEnv, parts []string) (*Result, error) {
 		}
 	}
 
+	return &CommandResult{rc, stdout, stderr}, nil
+}
+
+func RunCommandInEnv(env *CommandEnv, unixEnv []string, parts ...string) (*CommandResult, error) {
+	c := exec.Command(parts[0], parts[1:]...)
+	c.Env = unixEnv
+
+	if env.Env.config.ShowCommandOutput {
+		fmt.Printf("RUN: %s\n", strings.Join(parts, " "))
+	}
+
+	rc := 0
+
+	stdout, stderr, err := captureCmd(c, env.Env.config.ShowCommandOutput)
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			rc = 1
+		} else {
+			return nil, err
+		}
+	}
+
+	return &CommandResult{rc, stdout, stderr}, nil
+}
+
+func runCmd(env *CommandEnv, parts ...string) (*Result, error) {
+	cmd, err := RunCommand(env, parts...)
+	if err != nil {
+		return nil, err
+	}
+
 	r := NewResult(true)
 
-	r.Add("rc", rc)
-	r.Add("stdout", strings.TrimSpace(stdout))
-	r.Add("stderr", strings.TrimSpace(stderr))
+	r.Add("rc", cmd.ReturnCode)
+	r.Add("stdout", strings.TrimSpace(string(cmd.Stdout)))
+	r.Add("stderr", strings.TrimSpace(string(cmd.Stderr)))
 
 	return r, nil
 }
@@ -124,13 +165,13 @@ func (cmd *CommandCmd) Run(env *CommandEnv, args string) (*Result, error) {
 		return nil, err
 	}
 
-	return runCmd(env, parts)
+	return runCmd(env, parts...)
 }
 
 type ShellCmd struct{}
 
 func (cmd *ShellCmd) Run(env *CommandEnv, args string) (*Result, error) {
-	return runCmd(env, []string{"sh", "-c", args})
+	return runCmd(env, "sh", "-c", args)
 }
 
 type CopyCmd struct {
@@ -254,7 +295,7 @@ func (cmd *ScriptCmd) Run(env *CommandEnv, args string) (*Result, error) {
 
 	runArgs := append([]string{"sh", path}, parts[1:]...)
 
-	return runCmd(env, runArgs)
+	return runCmd(env, runArgs...)
 }
 
 func init() {
