@@ -63,7 +63,7 @@ func NewPlaybook(env *Environment, p string) (*Playbook, error) {
 
 type playData struct {
 	Include    string
-	Vars       map[string]string
+	Vars       map[string]interface{}
 	Hosts      string
 	Vars_files []interface{}
 	Tasks      []TaskData
@@ -323,7 +323,7 @@ func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play,
 	play.Vars = NewNestedScope(s)
 
 	for sk, iv := range m.Vars {
-		play.Vars.Set(sk, inferString(iv))
+		play.Vars.Set(sk, iv)
 	}
 
 	play.VarsFiles = m.Vars_files

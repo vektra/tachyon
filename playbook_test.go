@@ -42,7 +42,7 @@ func TestSimplePlaybook(t *testing.T) {
 		t.Fatalf("No var 'port'")
 	}
 
-	if a.Read() != int64(5150) {
+	if a.Read() != 5150 {
 		t.Errorf("Unable to decode numeric var: %#v", a.Read())
 	}
 
