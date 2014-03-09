@@ -143,6 +143,15 @@ func (p *PriorityScope) Set(key string, val interface{}) {
 	p.rest.Set(key, val)
 }
 
+func boolify(str string) bool {
+	switch str {
+	case "", "false", "no":
+		return false
+	default:
+		return true
+	}
+}
+
 func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 	ps := &PriorityScope{task.IncludeVars, fs}
 

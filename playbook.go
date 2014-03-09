@@ -139,8 +139,8 @@ func formatError(where string) error {
 
 func (p *Play) importTasks(env *Environment, tasks *Tasks, file string, s Scope, tds []TaskData) error {
 	for _, x := range tds {
-		if path, ok := x["include"]; ok {
-			err := p.importTasksFile(env, tasks, path.(string), s, x)
+		if _, ok := x["include"]; ok {
+			err := p.decodeTasksFile(env, tasks, s, x)
 			if err != nil {
 				return err
 			}
@@ -154,7 +154,9 @@ func (p *Play) importTasks(env *Environment, tasks *Tasks, file string, s Scope,
 	return nil
 }
 
-func (p *Play) importTasksFile(env *Environment, tasks *Tasks, path string, s Scope, td TaskData) error {
+func (p *Play) decodeTasksFile(env *Environment, tasks *Tasks, s Scope, td TaskData) error {
+	path := td["include"].(string)
+
 	parts := strings.SplitN(path, " ", 2)
 
 	path, err := ExpandVars(s, parts[0])
@@ -170,10 +172,10 @@ func (p *Play) importTasksFile(env *Environment, tasks *Tasks, path string, s Sc
 
 	filePath := env.Paths.Task(path)
 
-	return p.runTasksFile(env, tasks, filePath, args, s, td)
+	return p.importTasksFile(env, tasks, filePath, args, s, td)
 }
 
-func (p *Play) runTasksFile(env *Environment, tasks *Tasks, filePath string, args string, s Scope, td TaskData) error {
+func (p *Play) importTasksFile(env *Environment, tasks *Tasks, filePath string, args string, s Scope, td TaskData) error {
 
 	var tds []TaskData
 
@@ -215,8 +217,8 @@ func (p *Play) runTasksFile(env *Environment, tasks *Tasks, filePath string, arg
 	}
 
 	for _, x := range tds {
-		if spath, ok := x["include"]; ok {
-			err := p.importTasksFile(env, tasks, spath.(string), s, x)
+		if _, ok := x["include"]; ok {
+			err := p.decodeTasksFile(env, tasks, s, x)
 			if err != nil {
 				return err
 			}
@@ -285,7 +287,7 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 	taskPath := env.Paths.Task("main.yml")
 
 	if fileExist(taskPath) {
-		err := p.runTasksFile(env, &p.Tasks, taskPath, "", ts, td)
+		err := p.importTasksFile(env, &p.Tasks, taskPath, "", ts, td)
 		if err != nil {
 			return "", err
 		}
@@ -294,7 +296,7 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 	handlers := env.Paths.Handler("main.yml")
 
 	if fileExist(handlers) {
-		err := p.runTasksFile(env, &p.Handlers, handlers, "", ts, td)
+		err := p.importTasksFile(env, &p.Handlers, handlers, "", ts, td)
 		if err != nil {
 			return "", err
 		}
@@ -312,23 +314,7 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 	return role, nil
 }
 
-func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play, error) {
-	var play Play
-
-	if m.Hosts == "" {
-		return nil, formatError("hosts missing")
-	}
-
-	play.Hosts = m.Hosts
-	play.Vars = NewNestedScope(s)
-
-	for sk, iv := range m.Vars {
-		play.Vars.Set(sk, iv)
-	}
-
-	play.VarsFiles = m.Vars_files
-	play.baseDir = dir
-
+func (play *Play) importVarsFiles(env *Environment) error {
 	for _, file := range play.VarsFiles {
 		switch file := file.(type) {
 		case string:
@@ -348,13 +334,38 @@ func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play,
 					err = ImportVarsFile(play.Vars, epath)
 
 					if err != nil {
-						return nil, err
+						return err
 					}
 
 					break
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play, error) {
+	var play Play
+
+	if m.Hosts == "" {
+		m.Hosts = "all"
+	}
+
+	play.Hosts = m.Hosts
+	play.Vars = NewNestedScope(s)
+
+	for sk, iv := range m.Vars {
+		play.Vars.Set(sk, iv)
+	}
+
+	play.VarsFiles = m.Vars_files
+	play.baseDir = dir
+
+	err := play.importVarsFiles(env)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(m.Tasks) > 0 {
@@ -381,13 +392,4 @@ func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play,
 	}
 
 	return &play, nil
-}
-
-func boolify(str string) bool {
-	switch str {
-	case "", "false", "no":
-		return false
-	default:
-		return true
-	}
 }
