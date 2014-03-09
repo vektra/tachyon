@@ -233,6 +233,30 @@ func (p *Play) importTasksFile(env *Environment, tasks *Tasks, filePath string, 
 	return nil
 }
 
+func (p *Play) importMeta(env *Environment, path string, s Scope) error {
+	var m map[string]interface{}
+
+	err := yamlFile(path, &m)
+	if err != nil {
+		return err
+	}
+
+	if deps, ok := m["dependencies"]; ok {
+		if seq, ok := deps.([]interface{}); ok {
+			for _, m := range seq {
+				name, err := p.importRole(env, m, s)
+				if err != nil {
+					return err
+				}
+
+				p.Roles = append(p.Roles, name)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, error) {
 	var role string
 
@@ -282,7 +306,20 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 
 	cur := env.Paths
 
-	defer env.SetPaths(env.SetPaths(SeparatePaths{cur.Role(role)}))
+	sep := SeparatePaths{Top: base, Root: cur.Role(role)}
+
+	defer env.SetPaths(env.SetPaths(sep))
+
+	metaPath := env.Paths.Meta("main.yml")
+
+	dbg("meta: %s", metaPath)
+
+	if fileExist(metaPath) {
+		err := p.importMeta(env, metaPath, ts)
+		if err != nil {
+			return "", err
+		}
+	}
 
 	taskPath := env.Paths.Task("main.yml")
 

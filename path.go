@@ -10,6 +10,7 @@ type Paths interface {
 	Task(name string) string
 	Handler(name string) string
 	File(name string) string
+	Meta(name string) string
 }
 
 type SimplePath struct {
@@ -36,12 +37,17 @@ func (s SimplePath) File(name string) string {
 	return filepath.Join(s.Root, name)
 }
 
+func (s SimplePath) Meta(name string) string {
+	return filepath.Join(s.Root, name)
+}
+
 type SeparatePaths struct {
+	Top  string
 	Root string
 }
 
 func (s SeparatePaths) Role(name string) string {
-	return filepath.Join(s.Root, "roles", name)
+	return filepath.Join(s.Top, "roles", name)
 }
 
 func (s SeparatePaths) Vars(name string) string {
@@ -58,4 +64,8 @@ func (s SeparatePaths) Handler(name string) string {
 
 func (s SeparatePaths) File(name string) string {
 	return filepath.Join(s.Root, "files", name)
+}
+
+func (s SeparatePaths) Meta(name string) string {
+	return filepath.Join(s.Root, "meta", name)
 }
