@@ -179,6 +179,67 @@ func (m *ModuleRun) Run(env *CommandEnv, args string) (*Result, error) {
 	return NewResult(true), nil
 }
 
+func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope, fs *FutureScope, start time.Time) error {
+	var results []*Result
+
+	anyChanged := false
+
+	for _, item := range task.Items() {
+		ns := NewNestedScope(s)
+		ns.Set("item", item)
+
+		str, err := ExpandVars(ns, task.Args())
+
+		if err != nil {
+			return err
+		}
+
+		cmd, err := MakeCommand(ns, task, str)
+
+		if err != nil {
+			return err
+		}
+
+		r.report.StartTask(task, cmd, str)
+
+		ce := &CommandEnv{env, task.Paths}
+
+		res, err := cmd.Run(ce, str)
+
+		if err != nil {
+			res = NewResult(false)
+			res.Data.Set("failed", true)
+			res.Data.Set("error", err.Error())
+		}
+
+		if res.Changed {
+			anyChanged = true
+		}
+
+		results = append(results, res)
+	}
+
+	res := NewResult(anyChanged)
+	res.Data.Set("items", len(task.Items()))
+	res.Data.Set("results", results)
+
+	if name := task.Register(); name != "" {
+		fs.Set(name, res)
+	}
+
+	runtime := time.Since(start)
+
+	r.Results = append(r.Results, RunResult{task, res, runtime})
+
+	r.report.FinishTask(task, res)
+
+	for _, x := range task.Notify() {
+		r.AddNotify(x)
+	}
+
+	return nil
+}
+
 func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *FutureScope) error {
 	ps := &PriorityScope{task.IncludeVars, s}
 
@@ -197,64 +258,7 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 	}
 
 	if items := task.Items(); items != nil {
-		var results []*Result
-
-		anyChanged := false
-
-		for _, item := range items {
-			ns := NewNestedScope(ps)
-			ns.Set("item", item)
-
-			str, err := ExpandVars(ns, task.Args())
-
-			if err != nil {
-				return err
-			}
-
-			cmd, err := MakeCommand(ns, task, str)
-
-			if err != nil {
-				return err
-			}
-
-			r.report.StartTask(task, cmd, str)
-
-			ce := &CommandEnv{env, task.Paths}
-
-			res, err := cmd.Run(ce, str)
-
-			if err != nil {
-				res = NewResult(false)
-				res.Data.Set("failed", true)
-				res.Data.Set("error", err.Error())
-			}
-
-			if res.Changed {
-				anyChanged = true
-			}
-
-			results = append(results, res)
-		}
-
-		res := NewResult(anyChanged)
-		res.Data.Set("items", len(items))
-		res.Data.Set("results", results)
-
-		if name := task.Register(); name != "" {
-			fs.Set(name, res)
-		}
-
-		runtime := time.Since(start)
-
-		r.Results = append(r.Results, RunResult{task, res, runtime})
-
-		r.report.FinishTask(task, res)
-
-		for _, x := range task.Notify() {
-			r.AddNotify(x)
-		}
-
-		return nil
+		return r.runTaskItems(env, play, task, s, fs, start)
 	}
 
 	str, err := ExpandVars(ps, task.Args())
