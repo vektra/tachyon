@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/flynn/go-shlex"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -22,6 +23,7 @@ type Play struct {
 	Tasks      Tasks
 	Handlers   Tasks
 	Roles      []string
+	Modules    map[string]*Module
 
 	baseDir string
 }
@@ -257,6 +259,43 @@ func (p *Play) importMeta(env *Environment, path string, s Scope) error {
 	return nil
 }
 
+type Module struct {
+	Name      string
+	TaskDatas []TaskData             `yaml:"tasks"`
+	RawVars   map[string]interface{} `yaml:"vars"`
+
+	ModVars  Vars
+	ModTasks []*Task
+}
+
+func (p *Play) importModule(env *Environment, path string, s Scope) error {
+	var mod Module
+
+	err := yamlFile(path, &mod)
+	if err != nil {
+		return err
+	}
+
+	mod.ModVars = make(Vars)
+
+	// Inject yaml structured vars
+	if mod.RawVars != nil {
+		for k, v := range mod.RawVars {
+			mod.ModVars[k] = Any(v)
+		}
+	}
+
+	for _, x := range mod.TaskDatas {
+		task := &Task{data: x, Play: p, File: path}
+		task.Init(env)
+		mod.ModTasks = append(mod.ModTasks, task)
+	}
+
+	p.Modules[mod.Name] = &mod
+
+	return nil
+}
+
 func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, error) {
 	var role string
 
@@ -312,8 +351,6 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 
 	metaPath := env.Paths.Meta("main.yml")
 
-	dbg("meta: %s", metaPath)
-
 	if fileExist(metaPath) {
 		err := p.importMeta(env, metaPath, ts)
 		if err != nil {
@@ -345,6 +382,19 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 		err := ImportVarsFile(p.Vars, vars)
 		if err != nil {
 			return "", err
+		}
+	}
+
+	modules := filepath.Join(env.Paths.Base(), "modules")
+
+	if files, err := ioutil.ReadDir(modules); err == nil {
+		for _, file := range files {
+			if !file.IsDir() {
+				err := p.importModule(env, filepath.Join(modules, file.Name()), ts)
+				if err != nil {
+					return "", err
+				}
+			}
 		}
 	}
 
@@ -392,6 +442,7 @@ func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play,
 
 	play.Hosts = m.Hosts
 	play.Vars = NewNestedScope(s)
+	play.Modules = make(map[string]*Module)
 
 	for sk, iv := range m.Vars {
 		play.Vars.Set(sk, iv)

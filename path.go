@@ -5,6 +5,7 @@ import (
 )
 
 type Paths interface {
+	Base() string
 	Role(name string) string
 	Vars(name string) string
 	Task(name string) string
@@ -15,6 +16,10 @@ type Paths interface {
 
 type SimplePath struct {
 	Root string
+}
+
+func (s SimplePath) Base() string {
+	return s.Root
 }
 
 func (s SimplePath) Role(name string) string {
@@ -44,6 +49,10 @@ func (s SimplePath) Meta(name string) string {
 type SeparatePaths struct {
 	Top  string
 	Root string
+}
+
+func (s SeparatePaths) Base() string {
+	return s.Root
 }
 
 func (s SeparatePaths) Role(name string) string {

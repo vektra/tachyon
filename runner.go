@@ -67,7 +67,7 @@ func (r *Runner) Run(env *Environment) error {
 		fs := NewFutureScope(play.Vars)
 
 		for _, task := range play.Tasks {
-			err := r.runTask(env, task, fs)
+			err := r.runTask(env, play, task, fs, fs)
 			if err != nil {
 				return err
 			}
@@ -87,7 +87,7 @@ func (r *Runner) Run(env *Environment) error {
 
 		for _, task := range play.Handlers {
 			if r.ShouldRunHandler(task.Name()) {
-				err := r.runTask(env, task, fs)
+				err := r.runTask(env, play, task, fs, fs)
 
 				if err != nil {
 					return err
@@ -152,8 +152,35 @@ func boolify(str string) bool {
 	}
 }
 
-func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
-	ps := &PriorityScope{task.IncludeVars, fs}
+type ModuleRun struct {
+	Play        *Play
+	Task        *Task
+	Module      *Module
+	Runner      *Runner
+	Scope       Scope
+	FutureScope *FutureScope
+}
+
+func (m *ModuleRun) Run(env *CommandEnv, args string) (*Result, error) {
+	for _, task := range m.Module.ModTasks {
+		ns := NewNestedScope(m.Scope)
+		sm, err := ParseSimpleMap(ns, args)
+		if err != nil {
+			return nil, err
+		}
+
+		for k, v := range sm {
+			ns.Set(k, v)
+		}
+
+		m.Runner.runTask(env.Env, m.Play, task, ns, m.FutureScope)
+	}
+
+	return NewResult(true), nil
+}
+
+func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *FutureScope) error {
+	ps := &PriorityScope{task.IncludeVars, s}
 
 	start := time.Now()
 
@@ -236,10 +263,22 @@ func (r *Runner) runTask(env *Environment, task *Task, fs *FutureScope) error {
 		return err
 	}
 
-	cmd, err := MakeCommand(ps, task, str)
+	var cmd Command
 
-	if err != nil {
-		return err
+	if mod, ok := play.Modules[task.Command()]; ok {
+		cmd = &ModuleRun{
+			Play:   play,
+			Task:   task,
+			Module: mod,
+			Runner: r,
+			Scope:  s,
+		}
+	} else {
+		cmd, err = MakeCommand(ps, task, str)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	r.report.StartTask(task, cmd, str)
