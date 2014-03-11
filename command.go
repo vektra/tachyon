@@ -124,7 +124,24 @@ func MakeCommand(s Scope, task *Task, args string) (Command, error) {
 				if _, ok := ef.Interface().(bool); ok {
 					e.Field(i).Set(reflect.ValueOf(val.Read()))
 				} else {
-					e.Field(i).Set(reflect.ValueOf(fmt.Sprintf("%v", val.Read())))
+					val := fmt.Sprintf("%v", val.Read())
+					enum := f.Tag.Get("enum")
+					if enum != "" {
+						found := false
+
+						for _, p := range strings.Split(enum, ",") {
+							if p == val {
+								found = true
+								break
+							}
+						}
+
+						if !found {
+							return nil, fmt.Errorf("Invalid value '%s' for variable '%s'. Possibles: %s", val, name, enum)
+						}
+					}
+
+					e.Field(i).Set(reflect.ValueOf(val))
 				}
 			} else if required {
 				return nil, fmt.Errorf("Missing value for %s", f.Name)

@@ -9,7 +9,7 @@ import (
 
 type Apt struct {
 	Pkg   string `tachyon:"pkg"`
-	State string `tachyon:"state"`
+	State string `tachyon:"state" enum:"present,install,absent,remove"`
 	Cache string `tachyon:"cache"`
 	Dry   bool   `tachyon:"dryrun"`
 }

@@ -1,4 +1,16 @@
 
+namespace :build do
+  task :host do
+    sh "go build cmd/tachyon.go"
+  end
+
+  task :linux do
+    sh "sh -c 'GOOS=linux GOARCH=amd64 go build -o tachyon-linux-amd64 cmd/tachyon.go'"
+  end
+
+  task :all => [:host, :linux]
+end
+
 namespace :test do
   task :normal do
     sh "go test -v"

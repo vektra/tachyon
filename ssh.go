@@ -137,6 +137,16 @@ func (s *SSH) Run(args ...string) error {
 	return c.Run()
 }
 
+func (s *SSH) RunAndCapture(args ...string) ([]byte, error) {
+	c := s.Command(args...)
+
+	if s.Debug {
+		fmt.Printf("Run: %#v\n", c.Args)
+	}
+
+	return c.CombinedOutput()
+}
+
 func (s *SSH) RunAndShow(args ...string) error {
 	c := s.Command(args...)
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 type Options struct {
@@ -75,6 +76,8 @@ var cUpdateScript = []byte(`#!/bin/bash
 
 cd .tachyon
 
+BIN=tachyon-$TACHYON_OS-$TACHYON_ARCH
+
 if ! test -f tachyon; then
   curl -O https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/sums
   if which gpg > /dev/null; then
@@ -82,7 +85,7 @@ if ! test -f tachyon; then
     curl -O https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/sums.asc &
   fi
 
-  curl -O https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/tachyon-linux-amd64
+  curl -O https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/$BIN
 
   wait
 
@@ -93,10 +96,19 @@ if ! test -f tachyon; then
     fi
   fi
 
-  mv tachyon-linux-amd64 tachyon
+  mv $BIN tachyon
   chmod a+x tachyon
 fi
 `)
+
+func normalizeArch(arch string) string {
+	switch arch {
+	case "x86_64":
+		return "amd64"
+	default:
+		return arch
+	}
+}
 
 func runOnHost(opts *Options, args []string) int {
 	fmt.Printf("=== Executing playbook on %s\n", opts.Host)
@@ -114,18 +126,29 @@ func runOnHost(opts *Options, args []string) int {
 		bootstrap = "mkdir -p .tachyon"
 	}
 
-	err := ssh.Run(bootstrap)
+	out, err := ssh.RunAndCapture(bootstrap + " && uname && uname -m")
 	if err != nil {
 		fmt.Printf("Error creating remote .tachyon dir: %s\n", err)
 		return 1
 	}
+
+	tos, arch, ok := split2(string(out), "\n")
+	if !ok {
+		fmt.Printf("Unable to figure out os and arch of remote machine\n")
+		return 1
+	}
+
+	tos = strings.ToLower(tos)
+	arch = normalizeArch(strings.TrimSpace(arch))
+
+	binary := fmt.Sprintf("tachyon-%s-%s", tos, arch)
 
 	if opts.Development {
 		fmt.Printf("=== Copying development tachyon...\n")
 
 		path := filepath.Dir(args[0])
 
-		err = ssh.CopyToHost(filepath.Join(path, "tachyon-linux-amd64"), ".tachyon/tachyon")
+		err = ssh.CopyToHost(filepath.Join(path, binary), ".tachyon/tachyon")
 		if err != nil {
 			fmt.Printf("Error copying tachyon to vagrant: %s\n", err)
 			return 1
@@ -143,7 +166,8 @@ func runOnHost(opts *Options, args []string) int {
 			return 1
 		}
 
-		err = ssh.Run("./.tachyon/update")
+		cmd := fmt.Sprintf("TACHYON_OS=%s TACHYON_ARCH=%s ./.tachyon/update", tos, arch)
+		err = ssh.Run(cmd)
 		if err != nil {
 			fmt.Printf("Error running updater: %s\n", err)
 			return 1
