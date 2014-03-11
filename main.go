@@ -10,12 +10,12 @@ import (
 )
 
 type Options struct {
-	Vars       map[string]string `short:"s" long:"set" description:"Set a variable"`
-	ShowOutput bool              `short:"o" long:"output" description:"Show command output"`
-	Host       string            `short:"t" long:"host" description:"Run the playbook on another host"`
-	Release    bool              `short:"r" long:"release" description:"Use a release version"`
-	CleanHost  bool              `long:"clean-host" description:"Clean the host cache before using"`
-	Debug      bool              `short:"d" long:"debug" description:"Show all information about commands"`
+	Vars        map[string]string `short:"s" long:"set" description:"Set a variable"`
+	ShowOutput  bool              `short:"o" long:"output" description:"Show command output"`
+	Host        string            `short:"t" long:"host" description:"Run the playbook on another host"`
+	Development bool              `long:"dev" description:"Use a dev version of tachyon"`
+	CleanHost   bool              `long:"clean-host" description:"Clean the host cache before using"`
+	Debug       bool              `short:"d" long:"debug" description:"Show all information about commands"`
 }
 
 func Main(args []string) int {
@@ -120,7 +120,17 @@ func runOnHost(opts *Options, args []string) int {
 		return 1
 	}
 
-	if opts.Release {
+	if opts.Development {
+		fmt.Printf("=== Copying development tachyon...\n")
+
+		path := filepath.Dir(args[0])
+
+		err = ssh.CopyToHost(filepath.Join(path, "tachyon-linux-amd64"), ".tachyon/tachyon")
+		if err != nil {
+			fmt.Printf("Error copying tachyon to vagrant: %s\n", err)
+			return 1
+		}
+	} else {
 		fmt.Printf("=== Updating tachyon release...\n")
 
 		c := ssh.Command("cat > .tachyon/update && chmod a+x .tachyon/update")
@@ -136,12 +146,6 @@ func runOnHost(opts *Options, args []string) int {
 		err = ssh.Run("./.tachyon/update")
 		if err != nil {
 			fmt.Printf("Error running updater: %s\n", err)
-			return 1
-		}
-	} else {
-		err = ssh.CopyToHost("tachyon-linux-amd64", ":.tachyon/tachyon")
-		if err != nil {
-			fmt.Printf("Error copying tachyon to vagrant: %s\n", err)
 			return 1
 		}
 	}

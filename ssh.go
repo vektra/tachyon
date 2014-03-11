@@ -18,6 +18,17 @@ type SSH struct {
 	sshOptions   []string
 }
 
+func (s *SSH) CommandWithOptions(cmd string, args ...string) []string {
+	sshArgs := []string{cmd}
+	sshArgs = append(sshArgs, s.sshOptions...)
+
+	if s.Config != "" {
+		sshArgs = append(sshArgs, "-F", s.Config)
+	}
+
+	return append(sshArgs, args...)
+}
+
 func (s *SSH) RsyncCommand() string {
 	sshArgs := []string{"ssh"}
 	sshArgs = append(sshArgs, s.sshOptions...)
@@ -140,7 +151,7 @@ func (s *SSH) RunAndShow(args ...string) error {
 }
 
 func (s *SSH) CopyToHost(src, dest string) error {
-	args := s.SSHCommand("scp", src, s.Host+":"+dest)
+	args := s.CommandWithOptions("scp", src, s.Host+":"+dest)
 	c := exec.Command(args[0], args[1:]...)
 
 	if s.Debug {
