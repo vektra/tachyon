@@ -1,16 +1,47 @@
 package tachyon
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/flynn/go-shlex"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
+	"os/exec"
+	"os/user"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
+func HomeDir() (string, error) {
+	u, err := user.Current()
+	if err != nil {
+		su := os.Getenv("SUDO_USER")
+
+		var out []byte
+		var nerr error
+
+		if su != "" {
+			out, nerr = exec.Command("sh", "-c", "getent passwd "+su).Output()
+		} else {
+			out, nerr = exec.Command("sh", "-c", "getent passwd `id -u`").Output()
+		}
+
+		if nerr != nil {
+			return "", err
+		}
+
+		fields := bytes.Split(out, []byte(`:`))
+		if len(fields) >= 6 {
+			return string(fields[5]), nil
+		}
+
+		return "", fmt.Errorf("Unable to figure out the home dir")
+	}
+
+	return u.HomeDir, nil
+}
 func dbg(format string, args ...interface{}) {
 	fmt.Printf("[DBG] "+format+"\n", args...)
 }

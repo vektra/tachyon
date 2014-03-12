@@ -3,15 +3,19 @@ package apt
 import (
 	"fmt"
 	"github.com/vektra/tachyon"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
+	"time"
 )
 
 type Apt struct {
-	Pkg   string `tachyon:"pkg"`
-	State string `tachyon:"state" enum:"present,install,absent,remove"`
-	Cache string `tachyon:"cache"`
-	Dry   bool   `tachyon:"dryrun"`
+	Pkg       string `tachyon:"pkg"`
+	State     string `tachyon:"state" enum:"present,install,absent,remove"`
+	Cache     bool   `tachyon:"update_cache"`
+	CacheTime string `tachyon:"cache_time"`
+	Dry       bool   `tachyon:"dryrun"`
 }
 
 var installed = regexp.MustCompile(`Installed: ([^\n]+)`)
@@ -23,10 +27,34 @@ func (a *Apt) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error)
 		state = "present"
 	}
 
-	if a.Cache == "update" {
-		_, err := tachyon.RunCommand(env, "apt-get", "update")
+	if a.Cache {
+		home, err := tachyon.HomeDir()
 		if err != nil {
 			return nil, err
+		}
+
+		checkFile := filepath.Join(home, ".tachyon", "apt-cache-timestamp")
+
+		runUpdate := true
+
+		if a.CacheTime != "" {
+			fi, err := os.Stat(checkFile)
+			if err == nil {
+				dur, err := time.ParseDuration(a.CacheTime)
+				if err != nil {
+					return nil, fmt.Errorf("cache_time was not in the proper format")
+				}
+
+				runUpdate = time.Now().After(fi.ModTime().Add(dur))
+			}
+		}
+
+		if runUpdate {
+			_, err := tachyon.RunCommand(env, "apt-get", "update")
+			if err != nil {
+				return nil, err
+			}
+			ioutil.WriteFile(checkFile, []byte(``), 0666)
 		}
 	}
 
