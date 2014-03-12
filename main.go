@@ -96,6 +96,11 @@ if ! test -f tachyon; then
     fi
   fi
 
+  if ! shasum -c sums; then
+    echo "Sum verification failed!"
+    exit 1
+  fi
+
   mv $BIN tachyon
   chmod a+x tachyon
 fi
