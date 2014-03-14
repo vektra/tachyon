@@ -31,8 +31,10 @@ func AdhocTask(cmd, args string) *Task {
 	}
 }
 
-var cOptions = []string{"name", "action", "notify", "async", "poll",
-	"when", "future", "register"}
+var cOptions = []string{
+	"name", "action", "notify", "async", "poll",
+	"when", "future", "register", "with_items",
+}
 
 func (t *Task) Init(env *Environment) error {
 	t.Vars = make(Vars)
@@ -49,7 +51,7 @@ func (t *Task) Init(env *Environment) error {
 
 		if !found {
 			if t.cmd != "" {
-				return fmt.Errorf("Duplicate command, already: %s", t.cmd)
+				return fmt.Errorf("Duplicate command '%s', already: %s", k, t.cmd)
 			}
 
 			t.cmd = k

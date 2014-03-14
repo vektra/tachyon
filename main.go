@@ -61,6 +61,15 @@ func Main(args []string) int {
 		return 1
 	}
 
+	cur, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("Unable to figure out the current directory: %s\n", err)
+		return 1
+	}
+
+	defer os.Chdir(cur)
+	os.Chdir(playbook.baseDir)
+
 	runner := NewRunner(env, playbook.Plays)
 	err = runner.Run(env)
 

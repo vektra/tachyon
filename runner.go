@@ -20,6 +20,7 @@ type Runner struct {
 	report    Reporter
 
 	Results []RunResult
+	Start   time.Time
 	Runtime time.Duration
 }
 
@@ -57,6 +58,8 @@ func (r *Runner) AsyncChannel() chan *AsyncAction {
 
 func (r *Runner) Run(env *Environment) error {
 	start := time.Now()
+	r.Start = start
+
 	defer func() {
 		r.Runtime = time.Since(start)
 	}()

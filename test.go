@@ -3,6 +3,7 @@ package tachyon
 import (
 	"bytes"
 	"fmt"
+	"os"
 )
 
 func RunCapture(path string) (*Runner, string, error) {
@@ -21,10 +22,18 @@ func RunCapture(path string) (*Runner, string, error) {
 
 	var buf bytes.Buffer
 
-	reporter := CLIReporter{&buf}
+	reporter := CLIReporter{out: &buf}
 
 	runner := NewRunner(env, playbook.Plays)
 	runner.SetReport(&reporter)
+
+	cur, err := os.Getwd()
+	if err != nil {
+		return nil, "", err
+	}
+
+	defer os.Chdir(cur)
+	os.Chdir(playbook.baseDir)
 
 	err = runner.Run(env)
 

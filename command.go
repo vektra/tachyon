@@ -85,7 +85,7 @@ func MakeCommand(s Scope, task *Task, args string) (Command, error) {
 
 	if err == nil {
 		for ik, iv := range task.Vars {
-			exp, err := ExpandVars(s, fmt.Sprintf("%v", iv))
+			exp, err := ExpandVars(s, fmt.Sprintf("%v", iv.Read()))
 			if err != nil {
 				return nil, err
 			}

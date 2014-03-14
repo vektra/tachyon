@@ -51,9 +51,17 @@ func NewPlaybook(env *Environment, p string) (*Playbook, error) {
 
 	pb.Vars.Set("playbook_dir", baseDir)
 
-	defer env.SetPaths(env.SetPaths(SimplePath{baseDir}))
+	cur, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 
-	plays, err := pb.LoadPlays(p, pb.Vars)
+	defer os.Chdir(cur)
+	os.Chdir(baseDir)
+
+	defer env.SetPaths(env.SetPaths(SimplePath{"."}))
+
+	plays, err := pb.LoadPlays(filepath.Base(p), pb.Vars)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +156,11 @@ func (p *Play) importTasks(env *Environment, tasks *Tasks, file string, s Scope,
 			}
 		} else {
 			task := &Task{data: x, Play: p, File: file}
-			task.Init(env)
+			err := task.Init(env)
+			if err != nil {
+				return err
+			}
+
 			*tasks = append(*tasks, task)
 		}
 	}
@@ -226,7 +238,10 @@ func (p *Play) importTasksFile(env *Environment, tasks *Tasks, filePath string, 
 			}
 		} else {
 			task := &Task{data: x, Play: p, File: filePath}
-			task.Init(env)
+			err := task.Init(env)
+			if err != nil {
+				return err
+			}
 			task.IncludeVars = iv
 			*tasks = append(*tasks, task)
 		}
@@ -287,7 +302,10 @@ func (p *Play) importModule(env *Environment, path string, s Scope) error {
 
 	for _, x := range mod.TaskDatas {
 		task := &Task{data: x, Play: p, File: path}
-		task.Init(env)
+		err := task.Init(env)
+		if err != nil {
+			return err
+		}
 		mod.ModTasks = append(mod.ModTasks, task)
 	}
 
