@@ -429,13 +429,7 @@ func (play *Play) importVarsFiles(env *Environment) error {
 			break
 		case []interface{}:
 			for _, ent := range file {
-				exp, err := ExpandVars(play.Vars, ent.(string))
-
-				if err != nil {
-					continue
-				}
-
-				epath := env.Paths.Vars(exp)
+				epath := env.Paths.Vars(ent.(string))
 
 				if _, err := os.Stat(epath); err == nil {
 					err = ImportVarsFile(play.Vars, epath)

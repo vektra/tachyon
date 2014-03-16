@@ -287,36 +287,20 @@ func TestPlaybookWithItems(t *testing.T) {
 		t.Fatalf("Unable to run test/items.yml: %s", err)
 	}
 
-	if len(res.Results) == 0 {
+	if len(res.Results) != 3 {
 		t.Fatalf("tasks were not included from the role")
 	}
 
-	d := res.Results[0].Result
-
-	if v, ok := d.Get("items"); !ok || v.Read() != 3 {
-		t.Fatalf("Did not execute the playbook for items")
-	}
-
-	v, ok := d.Get("results")
-	if !ok {
-		t.Fatalf("results were not available")
-	}
-
-	am, ok := v.Read().([]*Result)
-	if !ok {
-		t.Fatalf("results not a slice: %#v", am)
-	}
-
-	if v, ok := am[0].Get("stdout"); !ok || v.Read() != "a" {
+	if v, ok := res.Results[0].Result.Get("stdout"); !ok || v.Read() != "a" {
 		t.Fatal("first isnt 'a'")
 	}
 
-	if v, ok := am[1].Get("stdout"); !ok || v.Read() != "b" {
-		t.Fatal("first isnt 'b'")
+	if v, ok := res.Results[1].Result.Get("stdout"); !ok || v.Read() != "b" {
+		t.Fatal("second isnt 'b'")
 	}
 
-	if v, ok := am[2].Get("stdout"); !ok || v.Read() != "c" {
-		t.Fatal("first isnt 'c'")
+	if v, ok := res.Results[2].Result.Get("stdout"); !ok || v.Read() != "c" {
+		t.Fatal("third isnt 'c'")
 	}
 
 }
