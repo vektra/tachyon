@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -14,8 +15,8 @@ type Reporter interface {
 	StartHandlers(r *Runner)
 	FinishHandlers(r *Runner)
 
-	StartTask(task *Task, cmd Command, args string)
-	FinishTask(task *Task, res *Result)
+	StartTask(task *Task, cmd Command, name, args string)
+	FinishTask(task *Task, cmd Command, res *Result)
 
 	FinishAsyncTask(act *AsyncAction)
 }
@@ -42,13 +43,13 @@ func (c *CLIReporter) StartHandlers(r *Runner) {
 
 func (c *CLIReporter) FinishHandlers(r *Runner) {}
 
-func (c *CLIReporter) StartTask(task *Task, cmd Command, args string) {
+func (c *CLIReporter) StartTask(task *Task, cmd Command, name, args string) {
 	dur := time.Since(c.Start)
 
 	if task.Async() {
-		fmt.Fprintf(c.out, "%7.3f - %s &\n", dur.Seconds(), task.Name())
+		fmt.Fprintf(c.out, "%7.3f - %s &\n", dur.Seconds(), name)
 	} else {
-		fmt.Fprintf(c.out, "%7.3f - %s\n", dur.Seconds(), task.Name())
+		fmt.Fprintf(c.out, "%7.3f - %s\n", dur.Seconds(), name)
 	}
 
 	if reflect.TypeOf(cmd).Elem().NumField() == 0 {
@@ -59,18 +60,34 @@ func (c *CLIReporter) StartTask(task *Task, cmd Command, args string) {
 	}
 }
 
-func (c *CLIReporter) FinishTask(task *Task, res *Result) {
+func (c *CLIReporter) FinishTask(task *Task, cmd Command, res *Result) {
 	if res == nil {
 		return
 	}
 
 	dur := time.Since(c.Start)
 
-	fmt.Fprintf(c.out, "%7.3f  - result:\n", dur.Seconds())
-
 	indent := fmt.Sprintf("%7.3f      ", dur.Seconds())
 
+	if render, ok := res.Get("$result"); ok {
+		out, ok := render.Read().(string)
+		if ok {
+			out = strings.TrimSpace(out)
+
+			if out != "" {
+				lines := strings.Split(out, "\n")
+				indented := strings.Join(lines, indent+"\n")
+
+				fmt.Fprintf(c.out, "%7.3f  - result:\n", dur.Seconds())
+				fmt.Fprintf(c.out, "%s%s\n", indent, indented)
+			}
+
+			return
+		}
+	}
+
 	if sy, err := indentedYAML(res.Data, indent); err == nil {
+		fmt.Fprintf(c.out, "%7.3f  - result:\n", dur.Seconds())
 		fmt.Fprintf(c.out, "%s", sy)
 	}
 }

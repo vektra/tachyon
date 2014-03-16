@@ -150,18 +150,10 @@ func (t *Task) Async() bool {
 	return ok
 }
 
-func (t *Task) Items() []string {
+func (t *Task) Items() []interface{} {
 	if v, ok := t.data["with_items"]; ok {
 		if a, ok := v.([]interface{}); ok {
-			var strs []string
-
-			for _, i := range a {
-				if s, ok := i.(string); ok {
-					strs = append(strs, s)
-				}
-			}
-
-			return strs
+			return a
 		}
 	}
 

@@ -17,12 +17,22 @@ type Options struct {
 	Development bool              `long:"dev" description:"Use a dev version of tachyon"`
 	CleanHost   bool              `long:"clean-host" description:"Clean the host cache before using"`
 	Debug       bool              `short:"d" long:"debug" description:"Show all information about commands"`
+	Release     string            `long:"release" description:"The release to use when remotely invoking tachyon"`
 }
+
+var Release string = "dev"
 
 func Main(args []string) int {
 	var opts Options
 
-	args, err := flags.ParseArgs(&opts, args)
+	parser := flags.NewParser(&opts, flags.Default)
+
+	for _, o := range parser.Command.Group.Groups()[0].Options() {
+		if o.LongName == "release" {
+			o.Default = []string{Release}
+		}
+	}
+	args, err := parser.ParseArgs(args)
 
 	if err != nil {
 		if serr, ok := err.(*flags.Error); ok {
@@ -85,16 +95,36 @@ var cUpdateScript = []byte(`#!/bin/bash
 
 cd .tachyon
 
+REL=$TACHYON_RELEASE
 BIN=tachyon-$TACHYON_OS-$TACHYON_ARCH
 
+if test -f tachyon; then
+  CUR=$(< release)
+  if test "$REL" != "$CUR"; then
+    echo "Detected tachyon of old release ($CUR), removing."
+    rm tachyon
+  fi
+fi
+
+if which curl > /dev/null; then
+  DL="curl -O"
+elif which wget > /dev/null; then
+  DL="wget"
+else
+  echo "No curl or wget, unable to pull a release"
+  exit 1
+fi
+
 if ! test -f tachyon; then
-  curl -O https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/sums
+  echo "Downloading $REL/$BIN..."
+
+  $DL https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/$REL/sums
   if which gpg > /dev/null; then
     gpg --keyserver keys.gnupg.net --recv-key A408199F &
-    curl -O https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/sums.asc &
+    $DL https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/$REL/sums.asc &
   fi
 
-  curl -O https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/$BIN
+  $DL https://s3-us-west-2.amazonaws.com/tachyon.vektra.io/$REL/$BIN
 
   wait
 
@@ -105,10 +135,24 @@ if ! test -f tachyon; then
     fi
   fi
 
-  if ! shasum -c sums; then
-    echo "Sum verification failed!"
-    exit 1
+  mv $BIN $BIN.gz
+
+  # If gunzip fails, it's because the file isn't gzip'd, so we
+  # assume it's already in the correct format.
+  if ! gunzip $BIN.gz; then
+    mv $BIN.gz $BIN
   fi
+
+  if which shasum > /dev/null; then
+    if ! (grep $BIN sums | shasum -c); then
+      echo "Sum verification failed!"
+      exit 1
+    fi
+  else
+    echo "No shasum available to verify files"
+  fi
+
+  echo $REL > release
 
   mv $BIN tachyon
   chmod a+x tachyon
@@ -131,6 +175,12 @@ func runOnHost(opts *Options, args []string) int {
 	ssh.Debug = opts.Debug
 
 	defer ssh.Cleanup()
+
+	err := ssh.Start()
+	if err != nil {
+		fmt.Printf("Error starting persistent SSH connection: %s\n", err)
+		return 1
+	}
 
 	var bootstrap string
 
@@ -180,7 +230,7 @@ func runOnHost(opts *Options, args []string) int {
 			return 1
 		}
 
-		cmd := fmt.Sprintf("TACHYON_OS=%s TACHYON_ARCH=%s ./.tachyon/update", tos, arch)
+		cmd := fmt.Sprintf("TACHYON_RELEASE=%s TACHYON_OS=%s TACHYON_ARCH=%s ./.tachyon/update", opts.Release, tos, arch)
 		err = ssh.Run(cmd)
 		if err != nil {
 			fmt.Printf("Error running updater: %s\n", err)

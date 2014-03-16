@@ -7,6 +7,12 @@ import (
 	"os"
 )
 
+var Release string
+
 func main() {
+	if Release != "" {
+		tachyon.Release = Release
+	}
+
 	os.Exit(tachyon.Main(os.Args))
 }

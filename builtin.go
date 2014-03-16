@@ -153,6 +153,10 @@ func runCmd(env *CommandEnv, parts ...string) (*Result, error) {
 	r.Add("stdout", strings.TrimSpace(string(cmd.Stdout)))
 	r.Add("stderr", strings.TrimSpace(string(cmd.Stderr)))
 
+	if str, ok := renderShellResult(r); ok {
+		r.Add("$result", str)
+	}
+
 	return r, nil
 }
 
@@ -172,6 +176,35 @@ type ShellCmd struct{}
 
 func (cmd *ShellCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	return runCmd(env, "sh", "-c", args)
+}
+
+func renderShellResult(res *Result) (string, bool) {
+	rcv, ok := res.Get("rc")
+	if !ok {
+		return "", false
+	}
+
+	stdoutv, ok := res.Get("stdout")
+	if !ok {
+		return "", false
+	}
+
+	stderrv, ok := res.Get("stderr")
+	if !ok {
+		return "", false
+	}
+
+	rc := rcv.Read().(int)
+	stdout := stdoutv.Read().(string)
+	stderr := stderrv.Read().(string)
+
+	if rc == 0 && len(stdout) == 0 && len(stderr) == 0 {
+		return "", true
+	} else if len(stderr) == 0 && len(stdout) > 60 {
+		return fmt.Sprintf(`rc: %d, stdout: "%s"`, rc, stdout), true
+	}
+
+	return "", false
 }
 
 type CopyCmd struct {

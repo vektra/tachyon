@@ -15,12 +15,15 @@ type SSH struct {
 	Debug  bool
 
 	removeConfig bool
-	sshOptions   []string
+	sshCCOptions []string
+	sshCSOptions []string
+
+	persistent *exec.Cmd
 }
 
 func (s *SSH) CommandWithOptions(cmd string, args ...string) []string {
 	sshArgs := []string{cmd}
-	sshArgs = append(sshArgs, s.sshOptions...)
+	sshArgs = append(sshArgs, s.sshCCOptions...)
 
 	if s.Config != "" {
 		sshArgs = append(sshArgs, "-F", s.Config)
@@ -31,7 +34,7 @@ func (s *SSH) CommandWithOptions(cmd string, args ...string) []string {
 
 func (s *SSH) RsyncCommand() string {
 	sshArgs := []string{"ssh"}
-	sshArgs = append(sshArgs, s.sshOptions...)
+	sshArgs = append(sshArgs, s.sshCCOptions...)
 
 	if s.Config != "" {
 		sshArgs = append(sshArgs, "-F", s.Config)
@@ -42,7 +45,7 @@ func (s *SSH) RsyncCommand() string {
 
 func (s *SSH) SSHCommand(cmd string, args ...string) []string {
 	sshArgs := []string{cmd}
-	sshArgs = append(sshArgs, s.sshOptions...)
+	sshArgs = append(sshArgs, s.sshCCOptions...)
 
 	if s.Config != "" {
 		sshArgs = append(sshArgs, "-F", s.Config)
@@ -76,16 +79,25 @@ func NewSSH(host string) *SSH {
 		}
 	}
 
-	s.sshOptions = []string{
-		"-o", "ControlMaster=auto",
-		"-o", "ControlPersist=60s",
-		"-o", "ControlPath=" + tachDir + "/tachyon-cp-ssh-%h-%p-%r",
+	cp := fmt.Sprintf("%s/tachyon-cp-ssh-%d", tachDir, os.Getpid())
+
+	s.sshCCOptions = []string{"-S", cp}
+
+	s.sshCSOptions = []string{
+		"-o", "ControlMaster=yes",
+		"-o", "ControlPersist=no",
+		"-o", "ControlPath=" + cp,
 	}
 
 	return s
 }
 
 func (s *SSH) Cleanup() {
+	if s.persistent != nil {
+		s.persistent.Process.Kill()
+		s.persistent.Wait()
+	}
+
 	if s.removeConfig {
 		os.Remove(s.Config)
 	}
@@ -118,6 +130,25 @@ func (s *SSH) ImportVagrant() bool {
 	s.Config = f.Name()
 
 	return true
+}
+
+func (s *SSH) Start() error {
+	sshArgs := s.sshCSOptions
+
+	if s.Config != "" {
+		sshArgs = append(sshArgs, "-F", s.Config)
+	}
+
+	sshArgs = append(sshArgs, "-N", s.Host)
+
+	c := exec.Command("ssh", sshArgs...)
+
+	err := c.Start()
+	if err == nil {
+		s.persistent = c
+	}
+
+	return err
 }
 
 func (s *SSH) Command(args ...string) *exec.Cmd {

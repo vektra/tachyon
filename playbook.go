@@ -103,7 +103,9 @@ func (pb *Playbook) LoadPlays(fpath string, s Scope) ([]*Play, error) {
 			ns := NewNestedScope(s)
 
 			if item.Vars != nil {
-				ns.addVars(item.Vars)
+				if err := ns.addVars(item.Vars); err != nil {
+					return nil, err
+				}
 			}
 
 			parts, err := shlex.Split(spath)
@@ -462,14 +464,23 @@ func parsePlay(env *Environment, s Scope, file, dir string, m *playData) (*Play,
 	play.Vars = NewNestedScope(s)
 	play.Modules = make(map[string]*Module)
 
+	var err error
+
 	for sk, iv := range m.Vars {
+		if sv, ok := iv.(string); ok {
+			iv, err = ExpandVars(s, sv)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		play.Vars.Set(sk, iv)
 	}
 
 	play.VarsFiles = m.Vars_files
 	play.baseDir = dir
 
-	err := play.importVarsFiles(env)
+	err = play.importVarsFiles(env)
 	if err != nil {
 		return nil, err
 	}

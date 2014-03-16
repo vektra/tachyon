@@ -57,12 +57,18 @@ func expandTemplates(s Scope, args string) (string, error) {
 			val, ok = s.Get(cur)
 
 			for _, sub := range parts[1:] {
-				m, ok := val.Read().(Map)
+				m, ok := val.(Map)
 				if !ok {
-					return "", fmt.Errorf("Variable '%s' is not a Map", cur)
+					m, ok = val.Read().(Map)
+					if !ok {
+						return "", fmt.Errorf("Variable '%s' is not a Map (%T)", cur, val.Read())
+					}
 				}
 
 				val, ok = m.Get(sub)
+				if !ok {
+					return "", fmt.Errorf("Variable '%s' has no key '%s'", cur, sub)
+				}
 				cur = sub
 			}
 		}

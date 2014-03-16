@@ -12,16 +12,53 @@ type AnyValue struct {
 	v interface{}
 }
 
-func Any(v interface{}) AnyValue {
-	if a, ok := v.(AnyValue); ok {
-		return a
-	}
-
-	return AnyValue{v}
-}
-
 func (a AnyValue) Read() interface{} {
 	return a.v
+}
+
+type AnyMap struct {
+	m map[interface{}]interface{}
+}
+
+func (a AnyMap) Read() interface{} {
+	return a.m
+}
+
+func (a AnyMap) Get(key string) (Value, bool) {
+	if v, ok := a.m[key]; ok {
+		return Any(v), true
+	}
+
+	return nil, false
+}
+
+type StrMap struct {
+	m map[string]interface{}
+}
+
+func (a StrMap) Get(key string) (Value, bool) {
+	if v, ok := a.m[key]; ok {
+		return Any(v), true
+	}
+
+	return nil, false
+}
+
+func (a StrMap) Read() interface{} {
+	return a.m
+}
+
+func Any(v interface{}) Value {
+	switch sv := v.(type) {
+	case AnyValue:
+		return sv
+	case map[interface{}]interface{}:
+		return AnyMap{sv}
+	case map[string]interface{}:
+		return StrMap{sv}
+	default:
+		return AnyValue{v}
+	}
 }
 
 func (a AnyValue) GetYAML() (string, interface{}) {
@@ -98,23 +135,39 @@ func (n *NestedScope) Flatten() Scope {
 	return n
 }
 
-func (n *NestedScope) addMapVars(mv map[interface{}]interface{}) {
+func (n *NestedScope) addMapVars(mv map[interface{}]interface{}) error {
 	for k, v := range mv {
 		if sk, ok := k.(string); ok {
+			if sv, ok := v.(string); ok {
+				var err error
+
+				v, err = ExpandVars(n, sv)
+				if err != nil {
+					return err
+				}
+			}
+
 			n.Set(sk, v)
 		}
 	}
+
+	return nil
 }
 
-func (n *NestedScope) addVars(vars interface{}) {
+func (n *NestedScope) addVars(vars interface{}) (err error) {
 	switch mv := vars.(type) {
 	case map[interface{}]interface{}:
-		n.addMapVars(mv)
+		err = n.addMapVars(mv)
 	case []interface{}:
 		for _, i := range mv {
-			n.addVars(i)
+			err = n.addVars(i)
+			if err != nil {
+				return
+			}
 		}
 	}
+
+	return
 }
 
 func ImportVarsFile(s Scope, path string) error {

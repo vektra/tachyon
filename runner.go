@@ -183,16 +183,16 @@ func (m *ModuleRun) Run(env *CommandEnv, args string) (*Result, error) {
 }
 
 func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope, fs *FutureScope, start time.Time) error {
-	var results []*Result
-
-	anyChanged := false
-
 	for _, item := range task.Items() {
 		ns := NewNestedScope(s)
 		ns.Set("item", item)
 
-		str, err := ExpandVars(ns, task.Args())
+		name, err := ExpandVars(ns, task.Name())
+		if err != nil {
+			return err
+		}
 
+		str, err := ExpandVars(ns, task.Args())
 		if err != nil {
 			return err
 		}
@@ -203,11 +203,17 @@ func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope,
 			return err
 		}
 
-		r.report.StartTask(task, cmd, str)
+		r.report.StartTask(task, cmd, name, str)
 
 		ce := &CommandEnv{env, task.Paths}
 
 		res, err := cmd.Run(ce, str)
+
+		if name := task.Register(); name != "" {
+			fs.Set(name, res)
+		}
+
+		runtime := time.Since(start)
 
 		if err != nil {
 			res = NewResult(false)
@@ -215,29 +221,15 @@ func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope,
 			res.Data.Set("error", err.Error())
 		}
 
-		if res.Changed {
-			anyChanged = true
+		r.Results = append(r.Results, RunResult{task, res, runtime})
+
+		r.report.FinishTask(task, cmd, res)
+
+		if err == nil {
+			for _, x := range task.Notify() {
+				r.AddNotify(x)
+			}
 		}
-
-		results = append(results, res)
-	}
-
-	res := NewResult(anyChanged)
-	res.Data.Set("items", len(task.Items()))
-	res.Data.Set("results", results)
-
-	if name := task.Register(); name != "" {
-		fs.Set(name, res)
-	}
-
-	runtime := time.Since(start)
-
-	r.Results = append(r.Results, RunResult{task, res, runtime})
-
-	r.report.FinishTask(task, res)
-
-	for _, x := range task.Notify() {
-		r.AddNotify(x)
 	}
 
 	return nil
@@ -264,8 +256,12 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 		return r.runTaskItems(env, play, task, s, fs, start)
 	}
 
-	str, err := ExpandVars(ps, task.Args())
+	name, err := ExpandVars(ps, task.Name())
+	if err != nil {
+		return err
+	}
 
+	str, err := ExpandVars(ps, task.Args())
 	if err != nil {
 		return err
 	}
@@ -288,7 +284,7 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 		}
 	}
 
-	r.report.StartTask(task, cmd, str)
+	r.report.StartTask(task, cmd, name, str)
 
 	ce := &CommandEnv{env, task.Paths}
 
@@ -326,7 +322,7 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 
 		r.Results = append(r.Results, RunResult{task, res, runtime})
 
-		r.report.FinishTask(task, res)
+		r.report.FinishTask(task, cmd, res)
 
 		if err == nil {
 			for _, x := range task.Notify() {

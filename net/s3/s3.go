@@ -40,9 +40,7 @@ func (s *S3) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error) 
 	res.Add("remote", s.At)
 
 	if s.PutFile != "" {
-		fmt.Printf("env.Paths: %#v\n", env.Paths)
 		path := env.Paths.File(s.PutFile)
-		fmt.Printf("path: %s\n", path)
 
 		f, err := os.Open(path)
 		if err != nil {

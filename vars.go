@@ -1,6 +1,6 @@
 package tachyon
 
-type Vars map[string]AnyValue
+type Vars map[string]Value
 
 func (v Vars) Copy() Vars {
 	o := make(Vars)
