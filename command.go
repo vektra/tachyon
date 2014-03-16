@@ -45,8 +45,25 @@ func NewResult(changed bool) *Result {
 }
 
 type CommandEnv struct {
-	Env   *Environment
-	Paths Paths
+	Env      *Environment
+	Paths    Paths
+	progress ProgressReporter
+}
+
+func NewCommandEnv(env *Environment, task *Task) *CommandEnv {
+	return &CommandEnv{
+		Env:      env,
+		Paths:    task.Paths,
+		progress: env.report,
+	}
+}
+
+func (e *CommandEnv) Progress(str string) {
+	if e.progress == nil {
+		fmt.Printf("=== %s\n", str)
+	} else {
+		e.progress.Progress(str)
+	}
 }
 
 type Command interface {

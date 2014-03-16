@@ -122,9 +122,18 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 		return nil, err
 	}
 
-	ce := &CommandEnv{env, env.Paths}
+	ce := &CommandEnv{Env: env, Paths: env.Paths}
 
-	return obj.Run(ce, str)
+	return obj.Run(ce, args)
+}
+
+func RunAdhocCommand(cmd Command, args string) (*Result, error) {
+	env := NewEnv(NewNestedScope(nil), &Config{})
+	defer env.Cleanup()
+
+	ce := &CommandEnv{Env: env, Paths: env.Paths}
+
+	return cmd.Run(ce, args)
 }
 
 type PriorityScope struct {
@@ -205,7 +214,7 @@ func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope,
 
 		r.report.StartTask(task, cmd, name, str)
 
-		ce := &CommandEnv{env, task.Paths}
+		ce := NewCommandEnv(env, task)
 
 		res, err := cmd.Run(ce, str)
 
@@ -286,7 +295,7 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 
 	r.report.StartTask(task, cmd, name, str)
 
-	ce := &CommandEnv{env, task.Paths}
+	ce := NewCommandEnv(env, task)
 
 	if name := task.Future(); name != "" {
 		future := NewFuture(start, task, func() (*Result, error) {

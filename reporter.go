@@ -19,6 +19,11 @@ type Reporter interface {
 	FinishTask(task *Task, cmd Command, res *Result)
 
 	FinishAsyncTask(act *AsyncAction)
+	Progress(str string)
+}
+
+type ProgressReporter interface {
+	Progress(string)
 }
 
 type CLIReporter struct {
@@ -58,6 +63,10 @@ func (c *CLIReporter) StartTask(task *Task, cmd Command, name, args string) {
 		fmt.Fprintf(c.out, "%7.3f  - %#v\n", dur.Seconds(), cmd)
 		fmt.Fprintf(c.out, "%7.3f  - %s: %s\n", dur.Seconds(), task.Command(), args)
 	}
+}
+
+func (c *CLIReporter) Progress(str string) {
+	fmt.Fprintf(c.out, "=== "+str+"\n")
 }
 
 func (c *CLIReporter) FinishTask(task *Task, cmd Command, res *Result) {
