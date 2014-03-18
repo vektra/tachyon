@@ -396,8 +396,8 @@ if ! test -f tachyon; then
 
   echo $REL > release
 
-  mv $BIN tachyon
-  chmod a+x tachyon
+  chmod a+x $BIN
+  ln -s $BIN tachyon
 fi
 `)
 
@@ -445,7 +445,7 @@ func (t *Tachyon) Run(env *CommandEnv, args string) (*Result, error) {
 
 	out, err := ssh.RunAndCapture(bootstrap + " && uname && uname -m")
 	if err != nil {
-		return nil, fmt.Errorf("Error creating remote .tachyon dir: %s\n", err)
+		return nil, fmt.Errorf("Error creating remote .tachyon dir: %s (%s)", err, string(out))
 	}
 
 	tos, arch, ok := split2(string(out), "\n")
@@ -463,10 +463,12 @@ func (t *Tachyon) Run(env *CommandEnv, args string) (*Result, error) {
 
 		path := filepath.Dir(Arg0)
 
-		err = ssh.CopyToHost(filepath.Join(path, binary), ".tachyon/tachyon")
+		err = ssh.CopyToHost(filepath.Join(path, binary), ".tachyon/"+binary+".new")
 		if err != nil {
 			return nil, fmt.Errorf("Error copying tachyon to vagrant: %s\n", err)
 		}
+
+		ssh.Run(fmt.Sprintf("cd .tachyon && mv %[1]s.new %[1]s && ln -fs %[1]s tachyon", binary))
 	} else {
 		env.Progress("Updating tachyon release...")
 
@@ -532,7 +534,13 @@ func (t *Tachyon) Run(env *CommandEnv, args string) (*Result, error) {
 	}
 
 	startCmd := fmt.Sprintf("cd .tachyon && sudo ./tachyon %s playbook/%s", format, main)
+
 	c = ssh.Command(startCmd)
+
+	if t.Debug {
+		fmt.Fprintf(os.Stderr, "Run: %#v\n", c.Args)
+	}
+
 	stream, err := c.StdoutPipe()
 	if err != nil {
 		return nil, err

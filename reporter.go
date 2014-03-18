@@ -187,10 +187,12 @@ func (c *JsonChunkReporter) Progress(str string) {
 func (c *JsonChunkReporter) JSONProgress(data []byte) error {
 	dur := time.Since(c.Start).Seconds()
 
+	raw := json.RawMessage(data)
+
 	c.send(
 		"phase", "json_progress",
 		"delta", dur,
-		"progress", json.RawMessage(data))
+		"progress", &raw)
 
 	return nil
 }
@@ -236,9 +238,19 @@ func (j *JsonChunkReconstitute) Input(data []byte) error {
 		return err
 	}
 
+	return j.InputMap(m, 0)
+}
+
+func (j *JsonChunkReconstitute) InputMap(m map[string]interface{}, depth int) error {
 	phase, ok := m["phase"]
 	if !ok {
 		return fmt.Errorf("No phase specified")
+	}
+
+	var prefix string
+
+	if depth > 0 {
+		prefix = fmt.Sprintf("[%d] ", depth)
 	}
 
 	switch phase {
@@ -248,16 +260,20 @@ func (j *JsonChunkReconstitute) Input(data []byte) error {
 			time = "(unknown)"
 		}
 
-		j.report.Progress(fmt.Sprintf("remote tasks @ %s", time))
+		j.report.Progress(fmt.Sprintf("%sremote tasks @ %s", prefix, time))
 	case "start_task":
-		j.report.Progress(fmt.Sprintf("- %s", m["name"]))
-		j.report.Progress(fmt.Sprintf("  %s: %s", m["command"], m["args"]))
+		j.report.Progress(fmt.Sprintf("%s- %s", prefix, m["name"]))
+		j.report.Progress(fmt.Sprintf("%s  %s: %s", prefix, m["command"], m["args"]))
 	case "finish_task":
-		j.report.Progress(fmt.Sprintf("* result:"))
+		j.report.Progress(fmt.Sprintf("%s* result:", prefix))
 
 		res := m["result"].(map[string]interface{})
 
-		j.report.Progress(indentedMap(res, "  "))
+		j.report.Progress(indentedMap(res, prefix+"  "))
+	case "json_progress":
+		ds := m["progress"].(map[string]interface{})
+
+		j.InputMap(ds, depth+1)
 	}
 
 	return nil

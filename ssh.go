@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/user"
 	"strings"
 )
 
@@ -66,12 +65,12 @@ func NewSSH(host string) *SSH {
 		s.ImportVagrant()
 	}
 
-	u, err := user.Current()
+	home, err := HomeDir()
 	if err != nil {
 		panic(err)
 	}
 
-	tachDir := u.HomeDir + "/.tachyon"
+	tachDir := home + "/.tachyon"
 
 	if _, err := os.Stat(tachDir); err != nil {
 		err = os.Mkdir(tachDir, 0755)
@@ -82,7 +81,7 @@ func NewSSH(host string) *SSH {
 
 	s.controlPath = fmt.Sprintf("%s/tachyon-cp-ssh-%d", tachDir, os.Getpid())
 
-	s.sshCCOptions = []string{}
+	s.sshCCOptions = []string{"-o", "StrictHostKeyChecking=no"}
 
 	s.sshCSOptions = []string{
 		"-o", "ControlMaster=yes",
@@ -134,7 +133,7 @@ func (s *SSH) ImportVagrant() bool {
 }
 
 func (s *SSH) Start() error {
-	s.sshCCOptions = []string{"-S", s.controlPath}
+	s.sshCCOptions = append(s.sshCCOptions, "-S", s.controlPath)
 
 	sshArgs := s.sshCSOptions
 
@@ -163,7 +162,7 @@ func (s *SSH) Run(args ...string) error {
 	c := s.Command(args...)
 
 	if s.Debug {
-		fmt.Printf("Run: %#v\n", c.Args)
+		fmt.Fprintf(os.Stderr, "Run: %#v\n", c.Args)
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
 	}
@@ -175,17 +174,23 @@ func (s *SSH) RunAndCapture(args ...string) ([]byte, error) {
 	c := s.Command(args...)
 
 	if s.Debug {
-		fmt.Printf("Run: %#v\n", c.Args)
+		fmt.Fprintf(os.Stderr, "Run: %#v\n", c.Args)
 	}
 
-	return c.CombinedOutput()
+	out, err := c.CombinedOutput()
+
+	if s.Debug {
+		fmt.Fprintf(os.Stderr, "Output:\n%s\n", string(out))
+	}
+
+	return out, err
 }
 
 func (s *SSH) RunAndShow(args ...string) error {
 	c := s.Command(args...)
 
 	if s.Debug {
-		fmt.Printf("Run: %#v\n", c.Args)
+		fmt.Fprintf(os.Stderr, "Run: %#v\n", c.Args)
 	}
 
 	c.Stdout = os.Stdout
@@ -199,7 +204,7 @@ func (s *SSH) CopyToHost(src, dest string) error {
 	c := exec.Command(args[0], args[1:]...)
 
 	if s.Debug {
-		fmt.Printf("Run: %#v\n", c.Args)
+		fmt.Fprintf(os.Stderr, "Run: %#v\n", c.Args)
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
 	}
