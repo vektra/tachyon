@@ -31,6 +31,10 @@ func NewEnv(s Scope, cfg *Config) *Environment {
 	return e
 }
 
+func (e *Environment) ReportJSON() {
+	e.report = sJsonChunkReporter
+}
+
 var eNoTmpDir = errors.New("No tempdir available")
 
 func (e *Environment) TempFile(prefix string) (*os.File, error) {

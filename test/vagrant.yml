@@ -5,4 +5,4 @@
     tachyon:
       target: :vagrant
       playbook: on_vagrant.yml
-      debug: true
+      dev: true

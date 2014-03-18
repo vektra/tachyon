@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"os"
+	"path/filepath"
 )
 
 type Options struct {
@@ -14,6 +15,7 @@ type Options struct {
 	CleanHost   bool              `long:"clean-host" description:"Clean the host cache before using"`
 	Debug       bool              `short:"d" long:"debug" description:"Show all information about commands"`
 	Release     string            `long:"release" description:"The release to use when remotely invoking tachyon"`
+	JSON        bool              `long:"json" description:"Output the run details in chunked json"`
 }
 
 var Release string = "dev"
@@ -22,7 +24,12 @@ var Arg0 string
 func Main(args []string) int {
 	var opts Options
 
-	Arg0 = args[0]
+	abs, err := filepath.Abs(args[0])
+	if err != nil {
+		panic(err)
+	}
+
+	Arg0 = abs
 
 	parser := flags.NewParser(&opts, flags.Default)
 
@@ -31,7 +38,7 @@ func Main(args []string) int {
 			o.Default = []string{Release}
 		}
 	}
-	args, err := parser.ParseArgs(args)
+	args, err = parser.ParseArgs(args)
 
 	if err != nil {
 		if serr, ok := err.(*flags.Error); ok {
@@ -63,6 +70,10 @@ func Main(args []string) int {
 
 	env := NewEnv(ns, cfg)
 	defer env.Cleanup()
+
+	if opts.JSON {
+		env.ReportJSON()
+	}
 
 	playbook, err := NewPlaybook(env, args[1])
 	if err != nil {

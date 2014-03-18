@@ -2,6 +2,7 @@ package tachyon
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/flynn/go-shlex"
 	"io/ioutil"
@@ -170,6 +171,61 @@ func indentedYAML(v interface{}, indent string) (string, error) {
 	return strings.Join(out, "\n"), nil
 }
 
+func arrayVal(v interface{}, indent string) string {
+	switch sv := v.(type) {
+	case string:
+		var out string
+
+		if strings.Index(sv, "\n") != -1 {
+			sub := strings.Split(sv, "\n")
+			out = strings.Join(sub, "\n"+indent+" | ")
+			return fmt.Sprintf("%s-\\\n%s   | %s", indent, indent, out)
+		} else {
+			return fmt.Sprintf("%s- \"%s\"", indent, sv)
+		}
+	case int, uint, int32, uint32, int64, uint64:
+		return fmt.Sprintf("%s- %d", indent, sv)
+	case bool:
+		return fmt.Sprintf("%s- %t", indent, sv)
+	case map[string]interface{}:
+		mv := indentedMap(sv, indent+"  ")
+		return fmt.Sprintf("%s-\n%s", indent, mv)
+	}
+
+	return fmt.Sprintf("%s- %v", indent, v)
+}
+
+func indentedMap(m map[string]interface{}, indent string) string {
+	var lines []string
+
+	for k, v := range m {
+		switch sv := v.(type) {
+		case string:
+			var out string
+
+			if strings.Index(sv, "\n") != -1 {
+				sub := strings.Split(sv, "\n")
+				out = strings.Join(sub, "\n"+indent+" | ")
+				lines = append(lines, fmt.Sprintf("%s%s:\n%s | %s",
+					indent, k, indent, out))
+			} else {
+				lines = append(lines, fmt.Sprintf("%s%s: \"%s\"", indent, k, sv))
+			}
+		case int, uint, int32, uint32, int64, uint64:
+			lines = append(lines, fmt.Sprintf("%s%s: %d", indent, k, sv))
+		case bool:
+			lines = append(lines, fmt.Sprintf("%s%s: %t", indent, k, sv))
+		case map[string]interface{}:
+			mv := indentedMap(sv, indent+"  ")
+			lines = append(lines, fmt.Sprintf("%s%s:\n%s", indent, k, mv))
+		default:
+			lines = append(lines, fmt.Sprintf("%s%s: %v", indent, k, sv))
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func fileExist(path string) bool {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -177,4 +233,30 @@ func fileExist(path string) bool {
 	}
 
 	return !fi.IsDir()
+}
+
+func gmap(args ...interface{}) map[string]interface{} {
+	m := make(map[string]interface{})
+
+	if len(args)%2 != 0 {
+		panic(fmt.Sprintf("Specify an even number of args: %d", len(args)))
+	}
+
+	i := 0
+
+	for i < len(args) {
+		m[args[i].(string)] = args[i+1]
+		i += 2
+	}
+
+	return m
+}
+
+func ijson(args ...interface{}) []byte {
+	b, err := json.Marshal(gmap(args...))
+	if err != nil {
+		panic(err)
+	}
+
+	return b
 }

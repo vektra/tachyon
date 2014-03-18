@@ -1,6 +1,7 @@
 package tachyon
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -24,6 +25,17 @@ func (rd ResultData) Get(key string) interface{} {
 type Result struct {
 	Changed bool
 	Data    ResultData
+}
+
+func (r *Result) MarshalJSON() ([]byte, error) {
+	m := make(map[string]interface{})
+	m["changed"] = r.Changed
+
+	for k, v := range r.Data {
+		m[k] = v.Read()
+	}
+
+	return json.Marshal(m)
 }
 
 func (r *Result) Get(key string) (Value, bool) {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -154,7 +155,7 @@ func runCmd(env *CommandEnv, parts ...string) (*Result, error) {
 	r.Add("stderr", strings.TrimSpace(string(cmd.Stderr)))
 
 	if str, ok := renderShellResult(r); ok {
-		r.Add("$result", str)
+		r.Add("_result", str)
 	}
 
 	return r, nil
@@ -416,6 +417,7 @@ type Tachyon struct {
 	Dev      bool   `tachyon:"dev"`
 	Playbook string `tachyon:"playbook"`
 	Release  string `tachyon:"release"`
+	NoJSON   bool   `tachyon:"no_json"`
 }
 
 func (t *Tachyon) Run(env *CommandEnv, args string) (*Result, error) {
@@ -428,10 +430,10 @@ func (t *Tachyon) Run(env *CommandEnv, args string) (*Result, error) {
 
 	defer ssh.Cleanup()
 
-	err := ssh.Start()
-	if err != nil {
-		return nil, fmt.Errorf("Error starting persistent SSH connection: %s\n", err)
-	}
+	// err := ssh.Start()
+	// if err != nil {
+	// return nil, fmt.Errorf("Error starting persistent SSH connection: %s\n", err)
+	// }
 
 	var bootstrap string
 
@@ -523,9 +525,58 @@ func (t *Tachyon) Run(env *CommandEnv, args string) (*Result, error) {
 
 	env.Progress("Running playbook...")
 
-	startCmd := fmt.Sprintf("cd .tachyon && sudo ./tachyon -o playbook/%s", main)
-	err = ssh.RunAndShow(startCmd)
+	var format string
 
+	if !t.NoJSON {
+		format = "--json"
+	}
+
+	startCmd := fmt.Sprintf("cd .tachyon && sudo ./tachyon %s playbook/%s", format, main)
+	c = ssh.Command(startCmd)
+	stream, err := c.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	c.Stderr = os.Stderr
+
+	c.Start()
+
+	input := bufio.NewReader(stream)
+
+	for {
+		str, err := input.ReadString('\n')
+		if err != nil {
+			break
+		}
+
+		sz, err := strconv.Atoi(strings.TrimSpace(str))
+		if err != nil {
+			break
+		}
+
+		data := make([]byte, sz)
+
+		_, err = input.Read(data)
+		if err != nil {
+			break
+		}
+
+		_, err = input.ReadByte()
+		if err != nil {
+			break
+		}
+
+		env.progress.JSONProgress(data)
+	}
+
+	if err != nil {
+		if err != io.EOF {
+			fmt.Printf("error: %s\n", err)
+		}
+	}
+
+	err = c.Wait()
 	if err != nil {
 		return nil, fmt.Errorf("Error running playbook on vagrant: %s\n", err)
 	}

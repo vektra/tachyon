@@ -17,6 +17,7 @@ type SSH struct {
 	removeConfig bool
 	sshCCOptions []string
 	sshCSOptions []string
+	controlPath  string
 
 	persistent *exec.Cmd
 }
@@ -79,14 +80,14 @@ func NewSSH(host string) *SSH {
 		}
 	}
 
-	cp := fmt.Sprintf("%s/tachyon-cp-ssh-%d", tachDir, os.Getpid())
+	s.controlPath = fmt.Sprintf("%s/tachyon-cp-ssh-%d", tachDir, os.Getpid())
 
-	s.sshCCOptions = []string{"-S", cp}
+	s.sshCCOptions = []string{}
 
 	s.sshCSOptions = []string{
 		"-o", "ControlMaster=yes",
 		"-o", "ControlPersist=no",
-		"-o", "ControlPath=" + cp,
+		"-o", "ControlPath=" + s.controlPath,
 	}
 
 	return s
@@ -133,6 +134,8 @@ func (s *SSH) ImportVagrant() bool {
 }
 
 func (s *SSH) Start() error {
+	s.sshCCOptions = []string{"-S", s.controlPath}
+
 	sshArgs := s.sshCSOptions
 
 	if s.Config != "" {
