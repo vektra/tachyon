@@ -128,7 +128,16 @@ func MakeCommand(s Scope, task *Task, args string) (Command, Vars, error) {
 	}
 
 	for ik, iv := range task.Vars {
-		sm[ik] = iv
+		if str, ok := iv.Read().(string); ok {
+			exp, err := ExpandVars(s, str)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			sm[ik] = Any(exp)
+		} else {
+			sm[ik] = iv
+		}
 	}
 
 	e := obj.Elem()
