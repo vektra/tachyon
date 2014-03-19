@@ -61,8 +61,17 @@ func NewSSH(host string) *SSH {
 		Host: host,
 	}
 
-	if host == ":vagrant" {
-		s.ImportVagrant()
+	if strings.Index(host, ":vagrant") == 0 {
+		var target string
+
+		if host == ":vagrant" {
+			target = "default"
+		} else {
+			parts := strings.Split(host, ":")
+			target = parts[2]
+		}
+
+		s.ImportVagrant(target)
 	}
 
 	home, err := HomeDir()
@@ -103,11 +112,11 @@ func (s *SSH) Cleanup() {
 	}
 }
 
-func (s *SSH) ImportVagrant() bool {
-	s.Host = "default"
+func (s *SSH) ImportVagrant(target string) bool {
+	s.Host = target
 	s.removeConfig = true
 
-	out, err := exec.Command("vagrant", "ssh-config").CombinedOutput()
+	out, err := exec.Command("vagrant", "ssh-config", target).CombinedOutput()
 	if err != nil {
 		fmt.Printf("Unable to execute 'vagrant ssh-config': %s\n", err)
 		return false
