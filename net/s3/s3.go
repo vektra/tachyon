@@ -25,7 +25,7 @@ type S3 struct {
 	GZip        bool   `tachyon:"gzip"`
 }
 
-func (s *S3) Run(env *tachyon.CommandEnv, args string) (*tachyon.Result, error) {
+func (s *S3) Run(env *tachyon.CommandEnv) (*tachyon.Result, error) {
 	auth, err := aws.GetAuth("", "", "", time.Time{})
 	if err != nil {
 		return nil, err

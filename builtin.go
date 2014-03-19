@@ -160,10 +160,12 @@ func runCmd(env *CommandEnv, parts ...string) (*Result, error) {
 	return r, nil
 }
 
-type CommandCmd struct{}
+type CommandCmd struct {
+	Command string `tachyon:"command,required"`
+}
 
-func (cmd *CommandCmd) Run(env *CommandEnv, args string) (*Result, error) {
-	parts, err := shlex.Split(args)
+func (cmd *CommandCmd) Run(env *CommandEnv) (*Result, error) {
+	parts, err := shlex.Split(cmd.Command)
 
 	if err != nil {
 		return nil, err
@@ -176,10 +178,12 @@ func (cmd *CommandCmd) ParseArgs(s Scope, args string) (Vars, error) {
 	return Vars{"command": Any(args)}, nil
 }
 
-type ShellCmd struct{}
+type ShellCmd struct {
+	Command string `tachyon:"command,required"`
+}
 
-func (cmd *ShellCmd) Run(env *CommandEnv, args string) (*Result, error) {
-	return runCmd(env, "sh", "-c", args)
+func (cmd *ShellCmd) Run(env *CommandEnv) (*Result, error) {
+	return runCmd(env, "sh", "-c", cmd.Command)
 }
 
 func (cmd *ShellCmd) ParseArgs(s Scope, args string) (Vars, error) {
@@ -236,7 +240,7 @@ func md5file(path string) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-func (cmd *CopyCmd) Run(env *CommandEnv, args string) (*Result, error) {
+func (cmd *CopyCmd) Run(env *CommandEnv) (*Result, error) {
 	input, err := os.Open(cmd.Src)
 
 	if err != nil {
@@ -318,12 +322,18 @@ func (cmd *CopyCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	return WrapResult(true, rd), nil
 }
 
-type ScriptCmd struct{}
+type ScriptCmd struct {
+	Script string `tachyon:"command,required"`
+}
 
-func (cmd *ScriptCmd) Run(env *CommandEnv, args string) (*Result, error) {
-	script := args
+func (cmd *ScriptCmd) ParseArgs(s Scope, args string) (Vars, error) {
+	return Vars{"command": Any(args)}, nil
+}
 
-	parts, err := shlex.Split(args)
+func (cmd *ScriptCmd) Run(env *CommandEnv) (*Result, error) {
+	script := cmd.Script
+
+	parts, err := shlex.Split(cmd.Script)
 	if err == nil {
 		script = parts[0]
 	}

@@ -79,7 +79,7 @@ func (e *CommandEnv) Progress(str string) {
 }
 
 type Command interface {
-	Run(env *CommandEnv, args string) (*Result, error)
+	Run(env *CommandEnv) (*Result, error)
 }
 
 type ArgParser interface {

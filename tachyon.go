@@ -99,7 +99,7 @@ type Tachyon struct {
 	NoJSON   bool   `tachyon:"no_json"`
 }
 
-func (t *Tachyon) Run(env *CommandEnv, args string) (*Result, error) {
+func (t *Tachyon) Run(env *CommandEnv) (*Result, error) {
 	if t.Release == "" {
 		t.Release = Release
 	}

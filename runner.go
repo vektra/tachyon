@@ -124,7 +124,7 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 
 	ce := &CommandEnv{Env: env, Paths: env.Paths}
 
-	return obj.Run(ce, args)
+	return obj.Run(ce)
 }
 
 func RunAdhocCommand(cmd Command, args string) (*Result, error) {
@@ -133,7 +133,7 @@ func RunAdhocCommand(cmd Command, args string) (*Result, error) {
 
 	ce := &CommandEnv{Env: env, Paths: env.Paths}
 
-	return cmd.Run(ce, args)
+	return cmd.Run(ce)
 }
 
 type PriorityScope struct {
@@ -171,12 +171,13 @@ type ModuleRun struct {
 	Runner      *Runner
 	Scope       Scope
 	FutureScope *FutureScope
+	Args        string
 }
 
-func (m *ModuleRun) Run(env *CommandEnv, args string) (*Result, error) {
+func (m *ModuleRun) Run(env *CommandEnv) (*Result, error) {
 	for _, task := range m.Module.ModTasks {
 		ns := NewNestedScope(m.Scope)
-		sm, err := ParseSimpleMap(ns, args)
+		sm, err := ParseSimpleMap(ns, m.Args)
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +216,7 @@ func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope,
 
 		ce := NewCommandEnv(env, task)
 
-		res, err := cmd.Run(ce, str)
+		res, err := cmd.Run(ce)
 
 		if name := task.Register(); name != "" {
 			fs.Set(name, res)
@@ -285,6 +286,7 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 			Module: mod,
 			Runner: r,
 			Scope:  s,
+			Args:   str,
 		}
 
 		argVars = make(Vars)
@@ -302,7 +304,7 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 
 	if name := task.Future(); name != "" {
 		future := NewFuture(start, task, func() (*Result, error) {
-			return cmd.Run(ce, str)
+			return cmd.Run(ce)
 		})
 
 		fs.AddFuture(name, future)
@@ -315,10 +317,10 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 		asyncAction.Init(r)
 
 		go func() {
-			asyncAction.Finish(cmd.Run(ce, str))
+			asyncAction.Finish(cmd.Run(ce))
 		}()
 	} else {
-		res, err := cmd.Run(ce, str)
+		res, err := cmd.Run(ce)
 
 		if name := task.Register(); name != "" {
 			fs.Set(name, res)
