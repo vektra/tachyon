@@ -1,6 +1,7 @@
 package tachyon
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -46,6 +47,18 @@ func (a StrMap) Get(key string) (Value, bool) {
 
 func (a StrMap) Read() interface{} {
 	return a.m
+}
+
+func (a AnyValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.v)
+}
+
+func (a AnyMap) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.m)
+}
+
+func (a StrMap) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.m)
 }
 
 func Any(v interface{}) Value {

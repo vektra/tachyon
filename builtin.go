@@ -172,10 +172,18 @@ func (cmd *CommandCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	return runCmd(env, parts...)
 }
 
+func (cmd *CommandCmd) ParseArgs(s Scope, args string) (Vars, error) {
+	return Vars{"command": Any(args)}, nil
+}
+
 type ShellCmd struct{}
 
 func (cmd *ShellCmd) Run(env *CommandEnv, args string) (*Result, error) {
 	return runCmd(env, "sh", "-c", args)
+}
+
+func (cmd *ShellCmd) ParseArgs(s Scope, args string) (Vars, error) {
+	return Vars{"command": Any(args)}, nil
 }
 
 func renderShellResult(res *Result) (string, bool) {

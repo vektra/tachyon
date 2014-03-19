@@ -82,6 +82,10 @@ type Command interface {
 	Run(env *CommandEnv, args string) (*Result, error)
 }
 
+type ArgParser interface {
+	ParseArgs(s Scope, args string) (Vars, error)
+}
+
 type Commands map[string]reflect.Type
 
 var AvailableCommands Commands
@@ -99,84 +103,88 @@ func RegisterCommand(name string, cmd Command) {
 	AvailableCommands[name] = e.Type()
 }
 
-func MakeCommand(s Scope, task *Task, args string) (Command, error) {
+func MakeCommand(s Scope, task *Task, args string) (Command, Vars, error) {
 	name := task.Command()
 
 	t, ok := AvailableCommands[name]
 
 	if !ok {
-		return nil, fmt.Errorf("Unknown command: %s", name)
+		return nil, nil, fmt.Errorf("Unknown command: %s", name)
 	}
 
 	obj := reflect.New(t)
 
-	sm, err := ParseSimpleMap(s, args)
+	var sm Vars
+	var err error
 
-	if err == nil {
-		for ik, iv := range task.Vars {
-			exp, err := ExpandVars(s, fmt.Sprintf("%v", iv.Read()))
-			if err != nil {
-				return nil, err
+	if ap, ok := obj.Interface().(ArgParser); ok {
+		sm, err = ap.ParseArgs(s, args)
+	} else {
+		sm, err = ParseSimpleMap(s, args)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for ik, iv := range task.Vars {
+		sm[ik] = iv
+	}
+
+	e := obj.Elem()
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+
+		name := strings.ToLower(f.Name)
+		required := false
+
+		parts := strings.Split(f.Tag.Get("tachyon"), ",")
+
+		switch len(parts) {
+		case 0:
+			// nothing
+		case 1:
+			name = parts[0]
+		case 2:
+			name = parts[0]
+			switch parts[1] {
+			case "required":
+				required = true
+			default:
+				return nil, nil, fmt.Errorf("Unsupported tag flag: %s", parts[1])
 			}
-
-			sm[ik] = Any(inferString(exp))
 		}
 
-		e := obj.Elem()
+		if val, ok := sm[name]; ok {
+			ef := e.Field(i)
 
-		for i := 0; i < t.NumField(); i++ {
-			f := t.Field(i)
+			if _, ok := ef.Interface().(bool); ok {
+				e.Field(i).Set(reflect.ValueOf(val.Read()))
+			} else {
+				val := fmt.Sprintf("%v", val.Read())
+				enum := f.Tag.Get("enum")
+				if enum != "" {
+					found := false
 
-			name := strings.ToLower(f.Name)
-			required := false
-
-			parts := strings.Split(f.Tag.Get("tachyon"), ",")
-
-			switch len(parts) {
-			case 0:
-				// nothing
-			case 1:
-				name = parts[0]
-			case 2:
-				name = parts[0]
-				switch parts[1] {
-				case "required":
-					required = true
-				default:
-					return nil, fmt.Errorf("Unsupported tag flag: %s", parts[1])
-				}
-			}
-
-			if val, ok := sm[name]; ok {
-				ef := e.Field(i)
-
-				if _, ok := ef.Interface().(bool); ok {
-					e.Field(i).Set(reflect.ValueOf(val.Read()))
-				} else {
-					val := fmt.Sprintf("%v", val.Read())
-					enum := f.Tag.Get("enum")
-					if enum != "" {
-						found := false
-
-						for _, p := range strings.Split(enum, ",") {
-							if p == val {
-								found = true
-								break
-							}
-						}
-
-						if !found {
-							return nil, fmt.Errorf("Invalid value '%s' for variable '%s'. Possibles: %s", val, name, enum)
+					for _, p := range strings.Split(enum, ",") {
+						if p == val {
+							found = true
+							break
 						}
 					}
 
-					e.Field(i).Set(reflect.ValueOf(val))
+					if !found {
+						return nil, nil, fmt.Errorf("Invalid value '%s' for variable '%s'. Possibles: %s", val, name, enum)
+					}
 				}
-			} else if required {
-				return nil, fmt.Errorf("Missing value for %s", f.Name)
+
+				e.Field(i).Set(reflect.ValueOf(val))
 			}
+		} else if required {
+			return nil, nil, fmt.Errorf("Missing value for %s", f.Name)
 		}
 	}
 
-	return obj.Interface().(Command), nil
+	return obj.Interface().(Command), sm, nil
 }

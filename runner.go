@@ -117,7 +117,7 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 		return nil, err
 	}
 
-	obj, err := MakeCommand(env.Vars, task, str)
+	obj, _, err := MakeCommand(env.Vars, task, str)
 	if err != nil {
 		return nil, err
 	}
@@ -206,13 +206,12 @@ func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope,
 			return err
 		}
 
-		cmd, err := MakeCommand(ns, task, str)
-
+		cmd, sm, err := MakeCommand(ns, task, str)
 		if err != nil {
 			return err
 		}
 
-		r.report.StartTask(task, cmd, name, str)
+		r.report.StartTask(task, name, str, sm)
 
 		ce := NewCommandEnv(env, task)
 
@@ -232,7 +231,7 @@ func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope,
 
 		r.Results = append(r.Results, RunResult{task, res, runtime})
 
-		r.report.FinishTask(task, cmd, res)
+		r.report.FinishTask(task, res)
 
 		if err == nil {
 			for _, x := range task.Notify() {
@@ -277,6 +276,8 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 
 	var cmd Command
 
+	var argVars Vars
+
 	if mod, ok := play.Modules[task.Command()]; ok {
 		cmd = &ModuleRun{
 			Play:   play,
@@ -285,15 +286,17 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 			Runner: r,
 			Scope:  s,
 		}
+
+		argVars = make(Vars)
 	} else {
-		cmd, err = MakeCommand(ps, task, str)
+		cmd, argVars, err = MakeCommand(ps, task, str)
 
 		if err != nil {
 			return err
 		}
 	}
 
-	r.report.StartTask(task, cmd, name, str)
+	r.report.StartTask(task, name, str, argVars)
 
 	ce := NewCommandEnv(env, task)
 
@@ -331,7 +334,7 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 
 		r.Results = append(r.Results, RunResult{task, res, runtime})
 
-		r.report.FinishTask(task, cmd, res)
+		r.report.FinishTask(task, res)
 
 		if err == nil {
 			for _, x := range task.Notify() {

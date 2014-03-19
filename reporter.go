@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -16,8 +15,8 @@ type Reporter interface {
 	StartHandlers(r *Runner)
 	FinishHandlers(r *Runner)
 
-	StartTask(task *Task, cmd Command, name, args string)
-	FinishTask(task *Task, cmd Command, res *Result)
+	StartTask(task *Task, name, args string, vars Vars)
+	FinishTask(task *Task, res *Result)
 
 	FinishAsyncTask(act *AsyncAction)
 	Progress(str string)
@@ -55,7 +54,7 @@ func (c *CLIReporter) StartHandlers(r *Runner) {
 
 func (c *CLIReporter) FinishHandlers(r *Runner) {}
 
-func (c *CLIReporter) StartTask(task *Task, cmd Command, name, args string) {
+func (c *CLIReporter) StartTask(task *Task, name, args string, vars Vars) {
 	dur := time.Since(c.Start)
 
 	if task.Async() {
@@ -64,12 +63,7 @@ func (c *CLIReporter) StartTask(task *Task, cmd Command, name, args string) {
 		fmt.Fprintf(c.out, "%7.3f - %s\n", dur.Seconds(), name)
 	}
 
-	if reflect.TypeOf(cmd).Elem().NumField() == 0 {
-		fmt.Fprintf(c.out, "%7.3f   %s: %s\n", dur.Seconds(), task.Command(), args)
-	} else {
-		fmt.Fprintf(c.out, "%7.3f   %#v\n", dur.Seconds(), cmd)
-		fmt.Fprintf(c.out, "%7.3f   %s: %s\n", dur.Seconds(), task.Command(), args)
-	}
+	fmt.Fprintf(c.out, "%7.3f   %s: %s\n", dur.Seconds(), task.Command(), inlineVars(vars))
 }
 
 func (c *CLIReporter) Progress(str string) {
@@ -86,7 +80,7 @@ func (c *CLIReporter) JSONProgress(data []byte) error {
 	return cr.Input(data)
 }
 
-func (c *CLIReporter) FinishTask(task *Task, cmd Command, res *Result) {
+func (c *CLIReporter) FinishTask(task *Task, res *Result) {
 	if res == nil {
 		return
 	}
@@ -157,7 +151,7 @@ func (c *JsonChunkReporter) FinishHandlers(r *Runner) {
 	c.send("phase", "finish_handlers")
 }
 
-func (c *JsonChunkReporter) StartTask(task *Task, cmd Command, name, args string) {
+func (c *JsonChunkReporter) StartTask(task *Task, name, args string, vars Vars) {
 	dur := time.Since(c.Start).Seconds()
 
 	typ := "sync"
@@ -172,6 +166,7 @@ func (c *JsonChunkReporter) StartTask(task *Task, cmd Command, name, args string
 		"name", name,
 		"command", task.Command(),
 		"args", args,
+		"vars", vars,
 		"delta", dur)
 }
 
@@ -197,7 +192,7 @@ func (c *JsonChunkReporter) JSONProgress(data []byte) error {
 	return nil
 }
 
-func (c *JsonChunkReporter) FinishTask(task *Task, cmd Command, res *Result) {
+func (c *JsonChunkReporter) FinishTask(task *Task, res *Result) {
 	if res == nil {
 		return
 	}
@@ -263,7 +258,8 @@ func (j *JsonChunkReconstitute) InputMap(m map[string]interface{}, depth int) er
 		j.report.Progress(fmt.Sprintf("%sremote tasks @ %s", prefix, time))
 	case "start_task":
 		j.report.Progress(fmt.Sprintf("%s- %s", prefix, m["name"]))
-		j.report.Progress(fmt.Sprintf("%s  %s: %s", prefix, m["command"], m["args"]))
+		mv := m["vars"].(map[string]interface{})
+		j.report.Progress(fmt.Sprintf("%s  %s: %s", prefix, m["command"], inlineMap(mv)))
 	case "finish_task":
 		j.report.Progress(fmt.Sprintf("%s* result:", prefix))
 

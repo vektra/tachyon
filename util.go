@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os/user"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -224,6 +225,88 @@ func indentedMap(m map[string]interface{}, indent string) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func inlineMap(m map[string]interface{}) string {
+	var keys []string
+
+	for k, _ := range m {
+		keys = append(keys, k)
+	}
+
+	// Minor special case. If there is only one key and it's
+	// named "command", just return the value.
+	if len(keys) == 1 && keys[0] == "command" {
+		for _, v := range m {
+			if sv, ok := v.(string); ok {
+				return sv
+			}
+		}
+	}
+
+	sort.Strings(keys)
+
+	var lines []string
+
+	for _, k := range keys {
+		v := m[k]
+
+		switch sv := v.(type) {
+		case string:
+			lines = append(lines, fmt.Sprintf("%s=%s", k, strconv.Quote(sv)))
+		case int, uint, int32, uint32, int64, uint64:
+			lines = append(lines, fmt.Sprintf("%s=%d", k, sv))
+		case bool:
+			lines = append(lines, fmt.Sprintf("%s=%t", k, sv))
+		case map[string]interface{}:
+			lines = append(lines, fmt.Sprintf("%s=(%s)", k, inlineMap(sv)))
+		default:
+			lines = append(lines, fmt.Sprintf("%s=`%v`", k, sv))
+		}
+	}
+
+	return strings.Join(lines, " ")
+}
+
+func inlineVars(m Vars) string {
+	var keys []string
+
+	for k, _ := range m {
+		keys = append(keys, k)
+	}
+
+	// Minor special case. If there is only one key and it's
+	// named "command", just return the value.
+	if len(keys) == 1 && keys[0] == "command" {
+		for _, v := range m {
+			if sv, ok := v.Read().(string); ok {
+				return sv
+			}
+		}
+	}
+
+	sort.Strings(keys)
+
+	var lines []string
+
+	for _, k := range keys {
+		v := m[k]
+
+		switch sv := v.Read().(type) {
+		case string:
+			lines = append(lines, fmt.Sprintf("%s=%s", k, strconv.Quote(sv)))
+		case int, uint, int32, uint32, int64, uint64:
+			lines = append(lines, fmt.Sprintf("%s=%d", k, sv))
+		case bool:
+			lines = append(lines, fmt.Sprintf("%s=%t", k, sv))
+		case map[string]interface{}:
+			lines = append(lines, fmt.Sprintf("%s=(%s)", k, inlineMap(sv)))
+		default:
+			lines = append(lines, fmt.Sprintf("%s=`%v`", k, sv))
+		}
+	}
+
+	return strings.Join(lines, " ")
 }
 
 func fileExist(path string) bool {
