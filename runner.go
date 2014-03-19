@@ -1,6 +1,7 @@
 package tachyon
 
 import (
+	"os"
 	"sync"
 	"time"
 )
@@ -122,7 +123,9 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 		return nil, err
 	}
 
-	ce := &CommandEnv{Env: env, Paths: env.Paths}
+	ar := &AdhocProgress{out: os.Stdout, Start: time.Now()}
+
+	ce := &CommandEnv{Env: env, Paths: env.Paths, progress: ar}
 
 	return obj.Run(ce)
 }
@@ -131,7 +134,9 @@ func RunAdhocCommand(cmd Command, args string) (*Result, error) {
 	env := NewEnv(NewNestedScope(nil), &Config{})
 	defer env.Cleanup()
 
-	ce := &CommandEnv{Env: env, Paths: env.Paths}
+	ar := &AdhocProgress{out: os.Stdout, Start: time.Now()}
+
+	ce := &CommandEnv{Env: env, Paths: env.Paths, progress: ar}
 
 	return cmd.Run(ce)
 }

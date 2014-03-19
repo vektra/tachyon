@@ -8,6 +8,10 @@ namespace :build do
     sh "sh -c 'GOOS=linux GOARCH=amd64 go build -o tachyon-linux-amd64 cmd/tachyon.go'"
   end
 
+  task :nightly do
+    sh %Q!go build -ldflags "-X main.Release nightly" cmd/tachyon.go!
+  end
+
   task :all => [:host, :linux]
 end
 

@@ -36,7 +36,7 @@ type CLIReporter struct {
 var sCLIReporter *CLIReporter = &CLIReporter{out: os.Stdout}
 
 func (c *CLIReporter) StartTasks(r *Runner) {
-	c.Start = r.Start
+	c.Start = time.Now()
 	fmt.Fprintf(c.out, "== tasks @ %v\n", r.Start)
 }
 
@@ -120,6 +120,25 @@ func (c *CLIReporter) FinishAsyncTask(act *AsyncAction) {
 	} else {
 		fmt.Fprintf(c.out, "%7.3f * %s (async error:%s)\n", dur.Seconds(), act.Task.Name(), act.Error)
 	}
+}
+
+type AdhocProgress struct {
+	out   io.Writer
+	Start time.Time
+}
+
+func (a *AdhocProgress) Progress(str string) {
+	dur := time.Since(a.Start)
+
+	lines := strings.Split(str, "\n")
+	out := strings.Join(lines, fmt.Sprintf("\n%7.3f ", dur.Seconds()))
+
+	fmt.Fprintf(a.out, "%7.3f %s\n", dur.Seconds(), out)
+}
+
+func (a *AdhocProgress) JSONProgress(data []byte) error {
+	cr := JsonChunkReconstitute{a}
+	return cr.Input(data)
 }
 
 type JsonChunkReporter struct {
