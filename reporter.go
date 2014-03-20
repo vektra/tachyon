@@ -280,11 +280,35 @@ func (j *JsonChunkReconstitute) InputMap(m map[string]interface{}, depth int) er
 		mv := m["vars"].(map[string]interface{})
 		j.report.Progress(fmt.Sprintf("%s  %s: %s", prefix, m["command"], inlineMap(mv)))
 	case "finish_task":
-		j.report.Progress(fmt.Sprintf("%s* result:", prefix))
-
 		res := m["result"].(map[string]interface{})
+		data := res["data"].(map[string]interface{})
 
-		j.report.Progress(indentedMap(res, prefix+"  "))
+		label := "result"
+
+		if m["changed"] != true {
+			label = "check"
+		} else if m["failed"] == true {
+			label = "failed"
+		}
+
+		reported := false
+
+		if v, ok := data["_result"]; ok {
+			if str, ok := v.(string); ok {
+				if str != "" {
+					j.report.Progress(fmt.Sprintf("%s* %s:", prefix, label))
+					j.report.Progress(prefix + "  " + str)
+				}
+				reported = true
+			}
+		}
+
+		if !reported {
+			if len(data) > 0 {
+				j.report.Progress(fmt.Sprintf("%s* %s:", prefix, label))
+				j.report.Progress(indentedMap(data, prefix+"  "))
+			}
+		}
 	case "json_progress":
 		ds := m["progress"].(map[string]interface{})
 

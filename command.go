@@ -24,18 +24,23 @@ func (rd ResultData) Get(key string) interface{} {
 
 type Result struct {
 	Changed bool
+	Failed  bool
 	Data    ResultData
 }
 
 func (r *Result) MarshalJSON() ([]byte, error) {
+	o := make(map[string]interface{})
 	m := make(map[string]interface{})
-	m["changed"] = r.Changed
+
+	o["changed"] = r.Changed
+	o["failed"] = r.Failed
+	o["data"] = m
 
 	for k, v := range r.Data {
 		m[k] = v.Read()
 	}
 
-	return json.Marshal(m)
+	return json.Marshal(o)
 }
 
 func (r *Result) Get(key string) (Value, bool) {
