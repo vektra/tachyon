@@ -94,7 +94,7 @@ func Main(args []string) int {
 	err = runner.Run(env)
 
 	if err != nil {
-		fmt.Printf("Error running playbook: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error running playbook: %s\n", err)
 		return 1
 	}
 
