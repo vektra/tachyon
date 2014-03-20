@@ -273,18 +273,26 @@ func md5file(path string) ([]byte, error) {
 }
 
 func (cmd *CopyCmd) Run(env *CommandEnv) (*Result, error) {
-	input, err := os.Open(cmd.Src)
+	var src string
+
+	if cmd.Src[0] == '/' {
+		src = cmd.Src
+	} else {
+		src = env.Paths.File(cmd.Src)
+	}
+
+	input, err := os.Open(src)
 
 	if err != nil {
 		return nil, err
 	}
 
-	srcStat, err := os.Stat(cmd.Src)
+	srcStat, err := os.Stat(src)
 	if err != nil {
 		return nil, err
 	}
 
-	srcDigest, err := md5file(cmd.Src)
+	srcDigest, err := md5file(src)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +307,7 @@ func (cmd *CopyCmd) Run(env *CommandEnv) (*Result, error) {
 
 	if stat, err := os.Lstat(dest); err == nil {
 		if stat.IsDir() {
-			dest = filepath.Join(dest, filepath.Base(cmd.Src))
+			dest = filepath.Join(dest, filepath.Base(src))
 		} else {
 			dstDigest, _ = md5file(dest)
 		}
@@ -308,8 +316,8 @@ func (cmd *CopyCmd) Run(env *CommandEnv) (*Result, error) {
 	}
 
 	rd := ResultData{
-		"md5sum": Any(hex.Dump(srcDigest)),
-		"src":    Any(cmd.Src),
+		"md5sum": Any(hex.EncodeToString(srcDigest)),
+		"src":    Any(src),
 		"dest":   Any(dest),
 	}
 
