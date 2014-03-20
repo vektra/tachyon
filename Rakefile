@@ -1,15 +1,17 @@
 
+flags = ""
+
 namespace :build do
   task :host do
-    sh "go build cmd/tachyon.go"
+    sh "go build #{flags} cmd/tachyon.go"
   end
 
   task :linux do
-    sh "sh -c 'GOOS=linux GOARCH=amd64 go build -o tachyon-linux-amd64 cmd/tachyon.go'"
+    sh "sh -c 'GOOS=linux GOARCH=amd64 go build #{flags} -o tachyon-linux-amd64 cmd/tachyon.go'"
   end
 
   task :nightly do
-    sh %Q!go build -ldflags "-X main.Release nightly" cmd/tachyon.go!
+    flags = %Q!-ldflags "-X main.Release nightly"!
   end
 
   task :all => [:host, :linux]
