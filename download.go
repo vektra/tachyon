@@ -13,6 +13,7 @@ type DownloadCmd struct {
 	Url       string `tachyon:"url,required"`
 	Dest      string `tachyon:"dest"`
 	Sha256sum string `tachyon:"sha256sum"`
+	Once      bool   `tachyon:"once"`
 }
 
 func (d *DownloadCmd) Run(env *CommandEnv) (*Result, error) {
@@ -29,6 +30,17 @@ func (d *DownloadCmd) Run(env *CommandEnv) (*Result, error) {
 			return nil, err
 		}
 	} else {
+		if d.Once {
+			fi, err := os.Stat(destPath)
+			if err == nil {
+				r := NewResult(false)
+				r.Data.Set("size", fi.Size())
+				r.Data.Set("path", destPath)
+
+				return r, nil
+			}
+		}
+
 		out, err = os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return nil, err
