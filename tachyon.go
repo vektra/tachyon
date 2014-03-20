@@ -163,7 +163,7 @@ func (t *Tachyon) Run(env *CommandEnv) (*Result, error) {
 		cmd := fmt.Sprintf("TACHYON_RELEASE=%s TACHYON_OS=%s TACHYON_ARCH=%s ./.tachyon/update", t.Release, tos, arch)
 		err = ssh.Run(cmd)
 		if err != nil {
-			return nil, fmt.Errorf("Error running updater: %s\n", err)
+			return nil, fmt.Errorf("Error running updater: %s", err)
 		}
 	}
 
@@ -269,7 +269,7 @@ func (t *Tachyon) Run(env *CommandEnv) (*Result, error) {
 
 	err = c.Wait()
 	if err != nil {
-		return nil, fmt.Errorf("Error running playbook on vagrant: %s\n", err)
+		return nil, fmt.Errorf("Error running playbook remotely: %s", err)
 	}
 
 	res := NewResult(true)
