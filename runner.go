@@ -230,9 +230,7 @@ func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope,
 		runtime := time.Since(start)
 
 		if err != nil {
-			res = NewResult(false)
-			res.Data.Set("failed", true)
-			res.Data.Set("error", err.Error())
+			res = FailureResult(err)
 		}
 
 		r.Results = append(r.Results, RunResult{task, res, runtime})
@@ -355,9 +353,7 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 		runtime := time.Since(start)
 
 		if err != nil {
-			res = NewResult(false)
-			res.Data.Set("failed", true)
-			res.Data.Set("error", err.Error())
+			res = FailureResult(err)
 		}
 
 		r.Results = append(r.Results, RunResult{task, res, runtime})

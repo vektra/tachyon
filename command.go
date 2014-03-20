@@ -49,11 +49,18 @@ func (r *Result) Add(key string, v interface{}) {
 }
 
 func WrapResult(changed bool, data ResultData) *Result {
-	return &Result{changed, data}
+	return &Result{changed, false, data}
 }
 
 func NewResult(changed bool) *Result {
-	return &Result{changed, make(ResultData)}
+	return &Result{changed, false, make(ResultData)}
+}
+
+func FailureResult(err error) *Result {
+	res := &Result{false, true, make(ResultData)}
+	res.Add("error", err.Error())
+
+	return res
 }
 
 type CommandEnv struct {
