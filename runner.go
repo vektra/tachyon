@@ -243,6 +243,8 @@ func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope,
 			for _, x := range task.Notify() {
 				r.AddNotify(x)
 			}
+		} else {
+			return err
 		}
 	}
 
@@ -366,6 +368,8 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 			for _, x := range task.Notify() {
 				r.AddNotify(x)
 			}
+		} else {
+			return err
 		}
 	}
 
