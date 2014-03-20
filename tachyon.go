@@ -172,6 +172,10 @@ func (t *Tachyon) Run(env *CommandEnv) (*Result, error) {
 	var main string
 
 	fi, err := os.Stat(t.Playbook)
+	if err != nil {
+		return nil, err
+	}
+
 	if fi.IsDir() {
 		src, err = filepath.Abs(t.Playbook)
 		if err != nil {
