@@ -176,28 +176,28 @@ type ModuleRun struct {
 	Runner      *Runner
 	Scope       Scope
 	FutureScope *FutureScope
-	Args        string
+	Vars        Vars
 }
 
 func (m *ModuleRun) Run(env *CommandEnv) (*Result, error) {
 	for _, task := range m.Module.ModTasks {
 		ns := NewNestedScope(m.Scope)
-		sm, err := ParseSimpleMap(ns, m.Args)
-		if err != nil {
-			return nil, err
-		}
 
-		for k, v := range sm {
+		for k, v := range m.Vars {
 			ns.Set(k, v)
 		}
 
-		m.Runner.runTask(env.Env, m.Play, task, ns, m.FutureScope)
+		err := m.Runner.runTask(env.Env, m.Play, task, ns, m.FutureScope)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return NewResult(true), nil
 }
 
 func (r *Runner) runTaskItems(env *Environment, play *Play, task *Task, s Scope, fs *FutureScope, start time.Time) error {
+
 	for _, item := range task.Items() {
 		ns := NewNestedScope(s)
 		ns.Set("item", item)
@@ -285,16 +285,35 @@ func (r *Runner) runTask(env *Environment, play *Play, task *Task, s Scope, fs *
 	var argVars Vars
 
 	if mod, ok := play.Modules[task.Command()]; ok {
-		cmd = &ModuleRun{
-			Play:   play,
-			Task:   task,
-			Module: mod,
-			Runner: r,
-			Scope:  s,
-			Args:   str,
+		sm, err := ParseSimpleMap(s, str)
+		if err != nil {
+			return err
 		}
 
-		argVars = make(Vars)
+		for ik, iv := range task.Vars {
+			if str, ok := iv.Read().(string); ok {
+				exp, err := ExpandVars(s, str)
+				if err != nil {
+					return err
+				}
+
+				sm[ik] = Any(exp)
+			} else {
+				sm[ik] = iv
+			}
+		}
+
+		cmd = &ModuleRun{
+			Play:        play,
+			Task:        task,
+			Module:      mod,
+			Runner:      r,
+			Scope:       s,
+			FutureScope: NewFutureScope(s),
+			Vars:        sm,
+		}
+
+		argVars = sm
 	} else {
 		cmd, argVars, err = MakeCommand(ps, task, str)
 
