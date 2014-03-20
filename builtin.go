@@ -141,9 +141,9 @@ func RunCommandInEnv(env *CommandEnv, unixEnv []string, parts ...string) (*Comma
 	return &CommandResult{rc, stdout, stderr}, nil
 }
 
-func runCmd(env *CommandEnv, parts ...string) (*Result, error) {
+func runCmd(env *CommandEnv, ignore bool, parts ...string) (*Result, error) {
 	cmd, err := RunCommand(env, parts...)
-	if err != nil {
+	if !ignore && err != nil {
 		return nil, err
 	}
 
@@ -161,32 +161,64 @@ func runCmd(env *CommandEnv, parts ...string) (*Result, error) {
 }
 
 type CommandCmd struct {
-	Command string `tachyon:"command,required"`
+	Command    string `tachyon:"command,required"`
+	Creates    string `tachyon:"creates"`
+	IgnoreFail bool   `tachyon:"ignore_failure"`
 }
 
 func (cmd *CommandCmd) Run(env *CommandEnv) (*Result, error) {
+	if cmd.Creates != "" {
+		if _, err := os.Stat(cmd.Creates); err == nil {
+			r := NewResult(false)
+			r.Add("rc", 0)
+			r.Add("exists", cmd.Creates)
+
+			return r, nil
+		}
+	}
+
 	parts, err := shlex.Split(cmd.Command)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return runCmd(env, parts...)
+	return runCmd(env, cmd.IgnoreFail, parts...)
 }
 
 func (cmd *CommandCmd) ParseArgs(s Scope, args string) (Vars, error) {
+	if args == "" {
+		return Vars{}, nil
+	}
+
 	return Vars{"command": Any(args)}, nil
 }
 
 type ShellCmd struct {
-	Command string `tachyon:"command,required"`
+	Command    string `tachyon:"command,required"`
+	Creates    string `tachyon:"creates"`
+	IgnoreFail bool   `tachyon:"ignore_failure"`
 }
 
 func (cmd *ShellCmd) Run(env *CommandEnv) (*Result, error) {
-	return runCmd(env, "sh", "-c", cmd.Command)
+	if cmd.Creates != "" {
+		if _, err := os.Stat(cmd.Creates); err == nil {
+			r := NewResult(false)
+			r.Add("rc", 0)
+			r.Add("exists", cmd.Creates)
+
+			return r, nil
+		}
+	}
+
+	return runCmd(env, cmd.IgnoreFail, "sh", "-c", cmd.Command)
 }
 
 func (cmd *ShellCmd) ParseArgs(s Scope, args string) (Vars, error) {
+	if args == "" {
+		return Vars{}, nil
+	}
+
 	return Vars{"command": Any(args)}, nil
 }
 
@@ -323,14 +355,30 @@ func (cmd *CopyCmd) Run(env *CommandEnv) (*Result, error) {
 }
 
 type ScriptCmd struct {
-	Script string `tachyon:"command,required"`
+	Script     string `tachyon:"command,required"`
+	Creates    string `tachyon:"creates"`
+	IgnoreFail bool   `tachyon:"ignore_failure"`
 }
 
 func (cmd *ScriptCmd) ParseArgs(s Scope, args string) (Vars, error) {
+	if args == "" {
+		return Vars{}, nil
+	}
+
 	return Vars{"command": Any(args)}, nil
 }
 
 func (cmd *ScriptCmd) Run(env *CommandEnv) (*Result, error) {
+	if cmd.Creates != "" {
+		if _, err := os.Stat(cmd.Creates); err == nil {
+			r := NewResult(false)
+			r.Add("rc", 0)
+			r.Add("exists", cmd.Creates)
+
+			return r, nil
+		}
+	}
+
 	script := cmd.Script
 
 	parts, err := shlex.Split(cmd.Script)
@@ -347,7 +395,7 @@ func (cmd *ScriptCmd) Run(env *CommandEnv) (*Result, error) {
 
 	runArgs := append([]string{"sh", path}, parts[1:]...)
 
-	return runCmd(env, runArgs...)
+	return runCmd(env, cmd.IgnoreFail, runArgs...)
 }
 
 func init() {
