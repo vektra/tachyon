@@ -338,3 +338,20 @@ func TestPlaybookRoleModulesCanUseYAMLArgs(t *testing.T) {
 		t.Fatalf("Task did not run from role: %#v", d)
 	}
 }
+
+func TestPlaybookRoleSubTasks(t *testing.T) {
+	res, _, err := RunCapture("test/site10.yml")
+	if err != nil {
+		t.Fatalf("Unable to run test/site10.yml: %s", err)
+	}
+
+	if len(res.Results) == 0 {
+		t.Fatalf("tasks were not included from the role")
+	}
+
+	d := res.Results[0].Result
+
+	if v, ok := d.Get("stdout"); !ok || v.Read() != "in get" {
+		t.Fatalf("Task did not run from role: %#v", d)
+	}
+}

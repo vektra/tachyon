@@ -355,6 +355,11 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 		}
 	}
 
+	parent, child, specific := split2(role, "::")
+	if specific {
+		role = parent
+	}
+
 	dir := env.Paths.Role(role)
 
 	if _, err := os.Stat(dir); err != nil {
@@ -368,6 +373,21 @@ func (p *Play) importRole(env *Environment, o interface{}, s Scope) (string, err
 	sep := SeparatePaths{Top: base, Root: cur.Role(role)}
 
 	defer env.SetPaths(env.SetPaths(sep))
+
+	if specific {
+		taskPath := env.Paths.Task(child + ".yml")
+
+		if fileExist(taskPath) {
+			err := p.importTasksFile(env, &p.Tasks, taskPath, "", ts, td)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			return "", fmt.Errorf("Missing specific tasks %s::%s", role, child)
+		}
+
+		return parent + "::" + child, nil
+	}
 
 	metaPath := env.Paths.Meta("main.yml")
 
