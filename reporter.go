@@ -285,9 +285,9 @@ func (j *JsonChunkReconstitute) InputMap(m map[string]interface{}, depth int) er
 
 		label := "result"
 
-		if m["changed"] != true {
+		if res["changed"].(bool) == false {
 			label = "check"
-		} else if m["failed"] == true {
+		} else if res["failed"].(bool) == true {
 			label = "failed"
 		}
 
