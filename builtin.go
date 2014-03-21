@@ -305,14 +305,15 @@ func (cmd *CopyCmd) Run(env *CommandEnv) (*Result, error) {
 
 	link := false
 
-	if stat, err := os.Lstat(dest); err == nil {
-		if stat.IsDir() {
+	destStat, err := os.Lstat(dest)
+	if err == nil {
+		if destStat.IsDir() {
 			dest = filepath.Join(dest, filepath.Base(src))
 		} else {
 			dstDigest, _ = md5file(dest)
 		}
 
-		link = stat.Mode()&os.ModeSymlink != 0
+		link = destStat.Mode()&os.ModeSymlink != 0
 	}
 
 	rd := ResultData{
@@ -322,7 +323,25 @@ func (cmd *CopyCmd) Run(env *CommandEnv) (*Result, error) {
 	}
 
 	if dstDigest != nil && bytes.Equal(srcDigest, dstDigest) {
-		return WrapResult(false, rd), nil
+		changed := false
+
+		if destStat.Mode() != srcStat.Mode() {
+			changed = true
+			if err := os.Chmod(dest, srcStat.Mode()); err != nil {
+				return nil, err
+			}
+		}
+
+		if ostat, ok := srcStat.Sys().(*syscall.Stat_t); ok {
+			if estat, ok := destStat.Sys().(*syscall.Stat_t); ok {
+				if ostat.Uid != estat.Uid || ostat.Gid != estat.Gid {
+					changed = true
+					os.Chown(dest, int(ostat.Uid), int(ostat.Gid))
+				}
+			}
+		}
+
+		return WrapResult(changed, rd), nil
 	}
 
 	tmp := fmt.Sprintf("%s.tmp.%d", cmd.Dest, os.Getpid())
