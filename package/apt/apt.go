@@ -72,7 +72,7 @@ func (a *Apt) Run(env *tachyon.CommandEnv) (*tachyon.Result, error) {
 
 	res := installed.FindSubmatch(out.Stdout)
 	if res == nil {
-		return nil, fmt.Errorf("No package '%s' available")
+		return nil, fmt.Errorf("No package '%s' available", a.Pkg)
 	}
 
 	curVer := string(res[1])
