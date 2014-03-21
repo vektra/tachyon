@@ -89,6 +89,14 @@ func (c *CLIReporter) FinishTask(task *Task, res *Result) {
 
 	indent := fmt.Sprintf("%7.3f   ", dur.Seconds())
 
+	label := "result"
+
+	if res.Changed == false {
+		label = "check"
+	} else if res.Failed == true {
+		label = "failed"
+	}
+
 	if render, ok := res.Get("_result"); ok {
 		out, ok := render.Read().(string)
 		if ok {
@@ -98,17 +106,17 @@ func (c *CLIReporter) FinishTask(task *Task, res *Result) {
 				lines := strings.Split(out, "\n")
 				indented := strings.Join(lines, indent+"\n")
 
-				fmt.Fprintf(c.out, "%7.3f * result:\n", dur.Seconds())
-				fmt.Fprintf(c.out, "%7.3f     %s%s\n", dur.Seconds(), indent, indented)
+				fmt.Fprintf(c.out, "%7.3f * %s:\n", dur.Seconds(), label)
+				fmt.Fprintf(c.out, "%7.3f   %s\n", dur.Seconds(), indented)
 			}
 
 			return
 		}
 	}
 
-	if sy, err := indentedYAML(res.Data, indent); err == nil {
-		fmt.Fprintf(c.out, "%7.3f * result:\n", dur.Seconds())
-		fmt.Fprintf(c.out, "%s", sy)
+	if len(res.Data) > 0 {
+		fmt.Fprintf(c.out, "%7.3f * %s:\n", dur.Seconds(), label)
+		fmt.Fprintf(c.out, "%s\n", indentedVars(Vars(res.Data), indent))
 	}
 }
 

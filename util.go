@@ -197,10 +197,61 @@ func arrayVal(v interface{}, indent string) string {
 }
 
 func indentedMap(m map[string]interface{}, indent string) string {
+	var keys []string
+
+	for k, _ := range m {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
 	var lines []string
 
-	for k, v := range m {
+	for _, k := range keys {
+		v := m[k]
+
 		switch sv := v.(type) {
+		case string:
+			var out string
+
+			if strings.Index(sv, "\n") != -1 {
+				sub := strings.Split(sv, "\n")
+				out = strings.Join(sub, "\n"+indent+" | ")
+				lines = append(lines, fmt.Sprintf("%s%s:\n%s | %s",
+					indent, k, indent, out))
+			} else {
+				lines = append(lines, fmt.Sprintf("%s%s: \"%s\"", indent, k, sv))
+			}
+		case int, uint, int32, uint32, int64, uint64:
+			lines = append(lines, fmt.Sprintf("%s%s: %d", indent, k, sv))
+		case bool:
+			lines = append(lines, fmt.Sprintf("%s%s: %t", indent, k, sv))
+		case map[string]interface{}:
+			mv := indentedMap(sv, indent+"  ")
+			lines = append(lines, fmt.Sprintf("%s%s:\n%s", indent, k, mv))
+		default:
+			lines = append(lines, fmt.Sprintf("%s%s: %v", indent, k, sv))
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func indentedVars(m Vars, indent string) string {
+	var keys []string
+
+	for k, _ := range m {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	var lines []string
+
+	for _, k := range keys {
+		v := m[k]
+
+		switch sv := v.Read().(type) {
 		case string:
 			var out string
 
