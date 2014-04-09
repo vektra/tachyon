@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/flynn/go-shlex"
+	"gopkg.in/yaml.v1"
 	"io/ioutil"
-	"launchpad.net/goyaml"
 	"os"
 	"os/exec"
 	"os/user"
@@ -55,7 +55,7 @@ func yamlFile(path string, v interface{}) error {
 		return err
 	}
 
-	return goyaml.Unmarshal(data, v)
+	return yaml.Unmarshal(data, v)
 }
 
 func mapToStruct(m map[string]interface{}, tag string, v interface{}) error {
@@ -152,7 +152,7 @@ func inferString(s string) interface{} {
 }
 
 func indentedYAML(v interface{}, indent string) (string, error) {
-	str, err := goyaml.Marshal(v)
+	str, err := yaml.Marshal(v)
 	if err != nil {
 		return "", err
 	}
