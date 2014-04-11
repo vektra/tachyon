@@ -1,4 +1,6 @@
 ---
 language: go
+install:
+  - sudo apt-get update
 go:
   - 1.2
