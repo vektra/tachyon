@@ -159,6 +159,28 @@ exec puma -c blah.cfg
 	}
 }
 
+func TestConfigGenerateTask(t *testing.T) {
+	c := TaskConfig("warmup-db", "mysql --warm-up")
+
+	b := c.Generate()
+
+	exp := `# warmup-db task
+
+description "warmup-db task"
+start on runlevel [2345]
+stop on runlevel [!2345]
+task
+console log
+exec mysql --warm-up
+`
+
+	if string(b) != exp {
+		t.Log(exp)
+		t.Log(string(b))
+		t.Fatal("Config did not generate properly")
+	}
+}
+
 func TestInstallCommand(t *testing.T) {
 	tmpdir, err := ioutil.TempDir("", "upstart-test")
 	if err != nil {

@@ -69,7 +69,6 @@ type Config struct {
 	StartOn      string
 	StopOn       string
 
-	Task    bool
 	Umask   int
 	Usage   string
 	Version string
@@ -105,6 +104,25 @@ func DaemonConfig(name string, cmd string) *Config {
 	return cfg
 }
 
+func TaskConfig(name string, cmd string) *Config {
+	cfg := &Config{
+		Nice:     -1,
+		OomScore: -1000,
+		Umask:    -1,
+		Env:      make(map[string]string),
+
+		Name:        name,
+		Type:        "task",
+		Console:     "log",
+		Description: fmt.Sprintf("%s task", name),
+		Exec:        cmd,
+		StartOn:     "runlevel [2345]",
+		StopOn:      "runlevel [!2345]",
+	}
+
+	return cfg
+}
+
 func (c *Config) UpdateDefaults() {
 	if c.Description == "" {
 		c.Description = fmt.Sprintf("%s %s", c.Name, c.Type)
@@ -130,6 +148,10 @@ func (c *Config) Generate() []byte {
 
 	buf.WriteString(fmt.Sprintf("start on %s\n", c.StartOn))
 	buf.WriteString(fmt.Sprintf("stop on %s\n", c.StopOn))
+
+	if c.Type == "task" {
+		buf.WriteString("task\n")
+	}
 
 	for _, e := range c.Emits {
 		buf.WriteString(fmt.Sprintf("emits %s\n", e))
