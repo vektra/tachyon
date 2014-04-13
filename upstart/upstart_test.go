@@ -19,11 +19,11 @@ func init() {
 
 	c := exec.Command("which", "initctl")
 	c.Run()
-	runAptTests = c.ProcessState.Success()
+	runUpstartTests = c.ProcessState.Success()
 }
 
 func TestJobs(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -60,7 +60,7 @@ func TestJobs(t *testing.T) {
 }
 
 func TestJob(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -80,7 +80,7 @@ func TestJob(t *testing.T) {
 }
 
 func TestJobName(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -105,7 +105,7 @@ func TestJobName(t *testing.T) {
 }
 
 func TestJobPid(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -140,7 +140,7 @@ func TestJobPid(t *testing.T) {
 }
 
 func TestJobPidReturnsErrorWhenMultipleInstances(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -161,7 +161,7 @@ func TestJobPidReturnsErrorWhenMultipleInstances(t *testing.T) {
 }
 
 func TestInstanceWithJob(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -181,7 +181,7 @@ func TestInstanceWithJob(t *testing.T) {
 }
 
 func TestInstanceWithJobAndInstance(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -203,7 +203,7 @@ func TestInstanceWithJobAndInstance(t *testing.T) {
 }
 
 func TestInstancePid(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -238,7 +238,7 @@ func TestInstancePid(t *testing.T) {
 }
 
 func TestInstanceRestart(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -270,7 +270,7 @@ func TestInstanceRestart(t *testing.T) {
 }
 
 func TestJobStart(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -321,7 +321,7 @@ func TestJobStart(t *testing.T) {
 }
 
 func TestJobRestart(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
@@ -367,7 +367,7 @@ func TestJobRestart(t *testing.T) {
 }
 
 func TestEmitEvent(t *testing.T) {
-	if runUpstartTests {
+	if !runUpstartTests {
 		t.SkipNow()
 	}
 
