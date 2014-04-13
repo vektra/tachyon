@@ -3,7 +3,6 @@ package upstart
 import (
 	"fmt"
 	"github.com/guelfey/go.dbus"
-	"os"
 	"strings"
 )
 
@@ -29,6 +28,10 @@ func Dial() (*Conn, error) {
 	}
 
 	return &Conn{conn}, nil
+}
+
+func (u *Conn) Close() error {
+	return u.conn.Close()
 }
 
 func (u *Conn) Jobs() ([]*Job, error) {
@@ -78,6 +81,11 @@ func (u *Conn) Instance(name string) (*Instance, error) {
 	return job.Instance(inst)
 }
 
+func (u *Conn) EmitEvent(name string, env []string, wait bool) error {
+	obj := u.object("/com/ubuntu/Upstart")
+	return obj.Call("com.ubuntu.Upstart0_6.EmitEvent", 0, name, env, wait).Store()
+}
+
 type Instance struct {
 	j    *Job
 	path dbus.ObjectPath
@@ -119,8 +127,8 @@ func (j *Job) Instance(name string) (*Instance, error) {
 	return &Instance{j, path}, nil
 }
 
-func (j *Job) Name() (string, error) {
-	val, err := j.obj().GetProperty("com.ubuntu.Upstart0_6.Job.name")
+func (j *Job) prop(name string) (string, error) {
+	val, err := j.obj().GetProperty("com.ubuntu.Upstart0_6.Job." + name)
 	if err != nil {
 		return "", err
 	}
@@ -130,6 +138,22 @@ func (j *Job) Name() (string, error) {
 	}
 
 	return "", fmt.Errorf("Name was not a string")
+}
+
+func (j *Job) Name() (string, error) {
+	return j.prop("name")
+}
+
+func (j *Job) Description() (string, error) {
+	return j.prop("description")
+}
+
+func (j *Job) Author() (string, error) {
+	return j.prop("author")
+}
+
+func (j *Job) Version() (string, error) {
+	return j.prop("version")
 }
 
 func (j *Job) Pid() (int32, error) {
@@ -182,12 +206,30 @@ func (j *Job) Pids() ([]int32, error) {
 	return pids, nil
 }
 
-func (j *Job) Restart() error {
+func (j *Job) Start() (*Instance, error) {
+	wait := false
+	c := j.obj().Call("com.ubuntu.Upstart0_6.Job.Start", 0, []string{}, wait)
+
+	var path dbus.ObjectPath
+	err := c.Store(&path)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Instance{j, path}, nil
+}
+
+func (j *Job) Restart() (*Instance, error) {
 	wait := false
 	c := j.obj().Call("com.ubuntu.Upstart0_6.Job.Restart", 0, []string{}, wait)
 
-	var inst dbus.ObjectPath
-	return c.Store(&inst)
+	var path dbus.ObjectPath
+	err := c.Store(&path)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Instance{j, path}, nil
 }
 
 func (j *Job) Stop() error {
@@ -195,6 +237,31 @@ func (j *Job) Stop() error {
 	c := j.obj().Call("com.ubuntu.Upstart0_6.Job.Stop", 0, []string{}, wait)
 
 	return c.Store()
+}
+
+func (i *Instance) strprop(name string) (string, error) {
+	val, err := i.obj().GetProperty("com.ubuntu.Upstart0_6.Instance." + name)
+	if err != nil {
+		return "", err
+	}
+
+	if str, ok := val.Value().(string); ok {
+		return str, nil
+	}
+
+	return "", fmt.Errorf("Name was not a string")
+}
+
+func (i *Instance) Name() (string, error) {
+	return i.strprop("name")
+}
+
+func (i *Instance) Goal() (string, error) {
+	return i.strprop("goal")
+}
+
+func (i *Instance) State() (string, error) {
+	return i.strprop("state")
 }
 
 type Process struct {
@@ -238,66 +305,37 @@ func (i *Instance) Pid() (int32, error) {
 	}
 }
 
+func (i *Instance) Start() error {
+	c := i.obj().Call("com.ubuntu.Upstart0_6.Instance.Start", 0, true)
+
+	return c.Store()
+}
+
+func (i *Instance) StartAsync() error {
+	c := i.obj().Call("com.ubuntu.Upstart0_6.Instance.Start", 0, false)
+
+	return c.Store()
+}
 func (i *Instance) Restart() error {
-	wait := false
-	c := i.obj().Call("com.ubuntu.Upstart0_6.Instance.Restart", 0, wait)
+	c := i.obj().Call("com.ubuntu.Upstart0_6.Instance.Restart", 0, true)
+
+	return c.Store()
+}
+
+func (i *Instance) RestartAsync() error {
+	c := i.obj().Call("com.ubuntu.Upstart0_6.Instance.Restart", 0, false)
 
 	return c.Store()
 }
 
 func (i *Instance) Stop() error {
-	wait := false
-	c := i.obj().Call("com.ubuntu.Upstart0_6.Instance.Stop", 0, wait)
+	c := i.obj().Call("com.ubuntu.Upstart0_6.Instance.Stop", 0, true)
 
 	return c.Store()
 }
 
-func main2() {
-	u, err := Dial()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to connect to session bus:", err)
-		os.Exit(1)
-	}
+func (i *Instance) StopAsync() error {
+	c := i.obj().Call("com.ubuntu.Upstart0_6.Instance.Stop", 0, false)
 
-	obj := u.object("/com/ubuntu/Upstart")
-
-	var s []dbus.ObjectPath
-	err = obj.Call("com.ubuntu.Upstart0_6.GetAllJobs", 0).Store(&s)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to get list of owned names:", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("jobs on machine:")
-	for _, v := range s {
-		fmt.Println(v)
-
-		j := u.object(v)
-		var instances []dbus.ObjectPath
-
-		err = j.Call("com.ubuntu.Upstart0_6.Job.GetAllInstances", 0).Store(&instances)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Failed to get list of instances:", err)
-			os.Exit(1)
-		}
-
-		for _, inst := range instances {
-			fmt.Printf("  %s\n", inst)
-			val, err := u.object(inst).GetProperty("com.ubuntu.Upstart0_6.Instance.processes")
-
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "Failed to get list of processes:", err)
-				os.Exit(1)
-			}
-
-			if ary, ok := val.Value().([][]interface{}); ok {
-				for _, elem := range ary {
-					fmt.Printf("  %v: %v\n", elem[0], elem[1])
-				}
-			} else {
-				fmt.Printf("Bad type of prop\n")
-			}
-
-		}
-	}
+	return c.Store()
 }
