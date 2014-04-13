@@ -227,7 +227,7 @@ func (j *Job) StartAsync() (*Instance, error) {
 }
 
 func (j *Job) Restart() (*Instance, error) {
-	wait := false
+	wait := true
 	c := j.obj().Call("com.ubuntu.Upstart0_6.Job.Restart", 0, []string{}, wait)
 
 	var path dbus.ObjectPath
@@ -240,7 +240,7 @@ func (j *Job) Restart() (*Instance, error) {
 }
 
 func (j *Job) Stop() error {
-	wait := false
+	wait := true
 	c := j.obj().Call("com.ubuntu.Upstart0_6.Job.Stop", 0, []string{}, wait)
 
 	return c.Store()
