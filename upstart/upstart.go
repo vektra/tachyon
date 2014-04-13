@@ -206,9 +206,8 @@ func (j *Job) Pids() ([]int32, error) {
 	return pids, nil
 }
 
-func (j *Job) Start() (*Instance, error) {
-	wait := false
-	c := j.obj().Call("com.ubuntu.Upstart0_6.Job.Start", 0, []string{}, wait)
+func (j *Job) StartWithOptions(env []string, wait bool) (*Instance, error) {
+	c := j.obj().Call("com.ubuntu.Upstart0_6.Job.Start", 0, env, wait)
 
 	var path dbus.ObjectPath
 	err := c.Store(&path)
@@ -217,6 +216,14 @@ func (j *Job) Start() (*Instance, error) {
 	}
 
 	return &Instance{j, path}, nil
+}
+
+func (j *Job) Start() (*Instance, error) {
+	return j.StartWithOptions([]string{}, true)
+}
+
+func (j *Job) StartAsync() (*Instance, error) {
+	return j.StartWithOptions([]string{}, false)
 }
 
 func (j *Job) Restart() (*Instance, error) {

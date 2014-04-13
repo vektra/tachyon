@@ -180,9 +180,28 @@ func MakeCommand(s Scope, task *Task, args string) (Command, Vars, error) {
 		if val, ok := sm[name]; ok {
 			ef := e.Field(i)
 
-			if _, ok := ef.Interface().(bool); ok {
-				e.Field(i).Set(reflect.ValueOf(val.Read()))
-			} else {
+			switch ef.Interface().(type) {
+			case bool:
+				ef.Set(reflect.ValueOf(val.Read()))
+			case map[string]string:
+				iv := val.Read()
+				m := make(map[string]string)
+
+				switch iv := iv.(type) {
+				case map[interface{}]interface{}:
+					for k, v := range iv {
+						m[fmt.Sprintf("%v", k)] = fmt.Sprintf("%v", v)
+					}
+				case map[string]interface{}:
+					for k, v := range iv {
+						m[k] = fmt.Sprintf("%v", v)
+					}
+				case map[string]string:
+					m = iv
+				}
+
+				ef.Set(reflect.ValueOf(m))
+			default:
 				val := fmt.Sprintf("%v", val.Read())
 				enum := f.Tag.Get("enum")
 				if enum != "" {
@@ -200,7 +219,7 @@ func MakeCommand(s Scope, task *Task, args string) (Command, Vars, error) {
 					}
 				}
 
-				e.Field(i).Set(reflect.ValueOf(val))
+				ef.Set(reflect.ValueOf(val))
 			}
 		} else if required {
 			return nil, nil, fmt.Errorf("Missing value for %s", f.Name)

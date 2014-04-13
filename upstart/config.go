@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -129,6 +130,10 @@ func (c *Config) UpdateDefaults() {
 	}
 }
 
+func (c *Config) Foreground() {
+	c.Expect = ""
+}
+
 func (c *Config) Generate() []byte {
 	var buf bytes.Buffer
 
@@ -252,6 +257,15 @@ func (c *Config) Generate() []byte {
 
 func (c *Config) Install() error {
 	return InstallConfig(c.Name, c.Generate())
+}
+
+func (c *Config) Exists() bool {
+	_, err := os.Stat(filepath.Join(InitDir, c.Name+".conf"))
+	if err == nil {
+		return true
+	}
+
+	return false
 }
 
 func InstallConfig(name string, config []byte) error {

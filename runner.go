@@ -130,6 +130,25 @@ func RunAdhocTask(cmd, args string) (*Result, error) {
 	return obj.Run(ce)
 }
 
+func RunAdhocTaskVars(td TaskData) (*Result, error) {
+	env := NewEnv(NewNestedScope(nil), &Config{})
+	defer env.Cleanup()
+
+	task := &Task{data: td}
+	task.Init(env)
+
+	obj, _, err := MakeCommand(env.Vars, task, "")
+	if err != nil {
+		return nil, err
+	}
+
+	ar := &AdhocProgress{out: os.Stdout, Start: time.Now()}
+
+	ce := &CommandEnv{Env: env, Paths: env.Paths, progress: ar}
+
+	return obj.Run(ce)
+}
+
 func RunAdhocCommand(cmd Command, args string) (*Result, error) {
 	env := NewEnv(NewNestedScope(nil), &Config{})
 	defer env.Cleanup()

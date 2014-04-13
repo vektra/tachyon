@@ -236,3 +236,27 @@ func TestConfigInstall(t *testing.T) {
 		t.Error("Did not write the config")
 	}
 }
+
+func TestConfigExists(t *testing.T) {
+	tmpdir, err := ioutil.TempDir("", "upstart-test")
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.RemoveAll(tmpdir)
+
+	InitDir = tmpdir
+
+	c := DaemonConfig("puma", "puma -c blah.conf")
+
+	exp := c.Generate()
+
+	err = c.Install()
+	if err != nil {
+		panic(err)
+	}
+
+	if !c.Exists() {
+		t.Error("Didn't find the config already there")
+	}
+}
