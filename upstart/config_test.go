@@ -249,7 +249,7 @@ func TestConfigExists(t *testing.T) {
 
 	c := DaemonConfig("puma", "puma -c blah.conf")
 
-	exp := c.Generate()
+	c.Generate()
 
 	err = c.Install()
 	if err != nil {
