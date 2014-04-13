@@ -2,6 +2,7 @@
 language: go
 install:
   - sudo apt-get update
+  - sudo apt-get install at # for testing upstart
   - mkdir ~/go
   - go get -d -v ./... && go build -v ./...
 go:
