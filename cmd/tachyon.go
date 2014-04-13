@@ -4,6 +4,7 @@ import (
 	"github.com/vektra/tachyon"
 	_ "github.com/vektra/tachyon/net"
 	_ "github.com/vektra/tachyon/package"
+	_ "github.com/vektra/tachyon/procmgmt"
 	"os"
 )
 
