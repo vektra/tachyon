@@ -16,6 +16,7 @@ type Options struct {
 	Debug       bool              `short:"d" long:"debug" description:"Show all information about commands"`
 	Release     string            `long:"release" description:"The release to use when remotely invoking tachyon"`
 	JSON        bool              `long:"json" description:"Output the run details in chunked json"`
+	Install     bool              `long:"install" description:"Install tachyon a remote machine"`
 }
 
 var Release string = "dev"
@@ -51,7 +52,7 @@ func Main(args []string) int {
 		return 1
 	}
 
-	if len(args) != 2 {
+	if !opts.Install && len(args) != 2 {
 		fmt.Printf("Usage: tachyon [options] <playbook>\n")
 		return 1
 	}
@@ -102,15 +103,26 @@ func Main(args []string) int {
 }
 
 func runOnHost(opts *Options, args []string) int {
-	fmt.Printf("=== Executing playbook on %s\n", opts.Host)
+	if opts.Install {
+		fmt.Printf("=== Installing tachyon on %s\n", opts.Host)
+	} else {
+		fmt.Printf("=== Executing playbook on %s\n", opts.Host)
+	}
+
+	var playbook string
+
+	if !opts.Install {
+		playbook = args[1]
+	}
 
 	t := &Tachyon{
-		Target:   opts.Host,
-		Debug:    opts.Debug,
-		Clean:    opts.CleanHost,
-		Dev:      opts.Development,
-		Playbook: args[1],
-		Release:  opts.Release,
+		Target:      opts.Host,
+		Debug:       opts.Debug,
+		Clean:       opts.CleanHost,
+		Dev:         opts.Development,
+		Playbook:    playbook,
+		Release:     opts.Release,
+		InstallOnly: opts.Install,
 	}
 
 	_, err := RunAdhocCommand(t, "")

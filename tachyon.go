@@ -90,13 +90,14 @@ func normalizeArch(arch string) string {
 }
 
 type Tachyon struct {
-	Target   string `tachyon:"target"`
-	Debug    bool   `tachyon:"debug"`
-	Clean    bool   `tachyon:"clean"`
-	Dev      bool   `tachyon:"dev"`
-	Playbook string `tachyon:"playbook"`
-	Release  string `tachyon:"release"`
-	NoJSON   bool   `tachyon:"no_json"`
+	Target      string `tachyon:"target"`
+	Debug       bool   `tachyon:"debug"`
+	Clean       bool   `tachyon:"clean"`
+	Dev         bool   `tachyon:"dev"`
+	Playbook    string `tachyon:"playbook"`
+	Release     string `tachyon:"release"`
+	NoJSON      bool   `tachyon:"no_json"`
+	InstallOnly bool   `tachyon:"install_only"`
 }
 
 func (t *Tachyon) Run(env *CommandEnv) (*Result, error) {
@@ -165,6 +166,14 @@ func (t *Tachyon) Run(env *CommandEnv) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Error running updater: %s", err)
 		}
+	}
+
+	if t.InstallOnly {
+		res := NewResult(true)
+		res.Add("target", t.Target)
+		res.Add("install_only", true)
+
+		return res, nil
 	}
 
 	var src string
