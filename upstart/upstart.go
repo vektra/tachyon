@@ -1,8 +1,11 @@
 package upstart
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/guelfey/go.dbus"
+	"os/exec"
+	"os/user"
 	"strings"
 )
 
@@ -21,10 +24,46 @@ func (u *Conn) object(path dbus.ObjectPath) *dbus.Object {
 	return u.conn.Object(BusName, path)
 }
 
+func userAndHome() (string, string, error) {
+	u, err := user.Current()
+	if err != nil {
+		out, nerr := exec.Command("sh", "-c", "getent passwd `id -u`").Output()
+
+		if nerr != nil {
+			return "", "", err
+		}
+
+		fields := bytes.Split(out, []byte(`:`))
+		if len(fields) >= 6 {
+			return string(fields[0]), string(fields[5]), nil
+		}
+
+		return "", "", fmt.Errorf("Unable to figure out the home dir")
+	}
+
+	return u.Username, u.HomeDir, nil
+}
+
 func Dial() (*Conn, error) {
-	conn, err := dbus.SystemBus()
+	conn, err := dbus.SystemBusPrivate()
 	if err != nil {
 		return nil, err
+	}
+
+	user, home, err := userAndHome()
+	if err != nil {
+		return nil, err
+	}
+
+	methods := []dbus.Auth{dbus.AuthExternal(user), dbus.AuthCookieSha1(user, home)}
+	if err = conn.Auth(methods); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	if err = conn.Hello(); err != nil {
+		conn.Close()
+		conn = nil
 	}
 
 	return &Conn{conn}, nil
