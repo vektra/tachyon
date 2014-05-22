@@ -2,6 +2,10 @@
 flags = ""
 
 namespace :build do
+  task :deps do
+    sh "go get ./..."
+  end
+
   task :host do
     sh "go build #{flags} cmd/tachyon.go"
   end
@@ -28,6 +32,6 @@ namespace :test do
   end
 end
 
-task :test => ["test:normal", "test:package"]
+task :test => ["build:deps", "test:normal", "test:package"]
 
 task :default => :test
