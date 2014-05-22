@@ -33,15 +33,16 @@ func (d *Install) Run(env *tachyon.CommandEnv) (*tachyon.Result, error) {
 }
 
 type Daemon struct {
-	Name       string `tachyon:"name"`
-	Command    string `tachyon:"command"`
-	Foreground bool   `tachyon:"foreground"`
-	OneFork    bool   `tachyon:"one_fork"`
-	Instance   string `tachyon:"instance"`
-	PreStart   string `tachyon:"pre_start"`
-	PostStart  string `tachyon:"post_start"`
-	PreStop    string `tachyon:"pre_stop"`
-	PostStop   string `tachyon:"post_stop"`
+	Name       string            `tachyon:"name"`
+	Command    string            `tachyon:"command"`
+	Foreground bool              `tachyon:"foreground"`
+	OneFork    bool              `tachyon:"one_fork"`
+	Instance   string            `tachyon:"instance"`
+	PreStart   string            `tachyon:"pre_start"`
+	PostStart  string            `tachyon:"post_start"`
+	PreStop    string            `tachyon:"pre_stop"`
+	PostStop   string            `tachyon:"post_stop"`
+	Env        map[string]string `tachyon:"env"`
 }
 
 func setScript(env *tachyon.CommandEnv, code *us.Code, val string) error {
@@ -65,6 +66,7 @@ func setScript(env *tachyon.CommandEnv, code *us.Code, val string) error {
 
 func (d *Daemon) Run(env *tachyon.CommandEnv) (*tachyon.Result, error) {
 	cfg := us.DaemonConfig(d.Name, d.Command)
+	cfg.Env = d.Env
 
 	if d.Foreground {
 		cfg.Foreground()
@@ -108,17 +110,19 @@ func (d *Daemon) Run(env *tachyon.CommandEnv) (*tachyon.Result, error) {
 }
 
 type Task struct {
-	Name      string `tachyon:"name"`
-	Command   string `tachyon:"command"`
-	Instance  string `tachyon:"instance"`
-	PreStart  string `tachyon:"pre_start"`
-	PostStart string `tachyon:"post_start"`
-	PreStop   string `tachyon:"pre_stop"`
-	PostStop  string `tachyon:"post_stop"`
+	Name      string            `tachyon:"name"`
+	Command   string            `tachyon:"command"`
+	Instance  string            `tachyon:"instance"`
+	PreStart  string            `tachyon:"pre_start"`
+	PostStart string            `tachyon:"post_start"`
+	PreStop   string            `tachyon:"pre_stop"`
+	PostStop  string            `tachyon:"post_stop"`
+	Env       map[string]string `tachyon:"env"`
 }
 
 func (t *Task) Run(env *tachyon.CommandEnv) (*tachyon.Result, error) {
 	cfg := us.TaskConfig(t.Name, t.Command)
+	cfg.Env = t.Env
 
 	cfg.Instance = t.Instance
 
