@@ -27,8 +27,7 @@ namespace :test do
   end
 
   task :package do
-    dir = File.expand_path("~/go")
-    sh "sudo GOPATH=#{dir} /usr/local/go/bin/go test ./package/apt -v"
+    sh "sudo GOPATH=#{ENV['GOPATH']} /usr/bin/go test ./package/apt -v"
   end
 end
 
