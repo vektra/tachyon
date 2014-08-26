@@ -27,7 +27,7 @@ namespace :test do
   end
 
   task :package do
-    sh "sudo GOPATH=#{ENV['GOPATH']} /usr/bin/go test ./package/apt -v"
+    sh "sudo GOPATH=#{ENV['GOPATH']} /usr/bin/env go test ./package/apt -v"
   end
 end
 
