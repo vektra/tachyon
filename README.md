@@ -28,7 +28,7 @@ and fleshing out some ideas I've got.
 It is! ansible uses python as it's implementation lang and thus also uses it as
 it's runtime eval language. Obviously I can't do that and I don't wish to runtime
 eval any golang code. Thus I have opted to embed a simple lisp intepreter
-(taken and modified from [http://github.com/janne/go-lisp](github.com/janne/go-lisp))
+(taken and modified from [https://github.com/janne/go-lisp](https://github.com/janne/go-lisp))
 to run code. For instance:
 
 ```yaml
