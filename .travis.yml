@@ -1,5 +1,4 @@
 ---
-sudo: false
 language: go
 install:
   - sudo apt-get update
