@@ -2,9 +2,10 @@ package tachyon
 
 import (
 	"fmt"
-	"github.com/jessevdk/go-flags"
 	"os"
 	"path/filepath"
+
+	"github.com/jessevdk/go-flags"
 )
 
 type Options struct {
@@ -20,6 +21,7 @@ type Options struct {
 }
 
 var Release string = "dev"
+var Version string = ""
 var Arg0 string
 
 func Main(args []string) int {

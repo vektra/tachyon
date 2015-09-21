@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/vektra/tachyon/lisp"
 	"strings"
 	"unicode"
+
+	"github.com/vektra/tachyon/lisp"
 )
 
 var cTemplateStart = []byte(`{{`)
@@ -17,7 +18,63 @@ var cExprEnd = []byte(`)`)
 var eUnclosedTemplate = errors.New("Unclosed template")
 var eUnclosedExpr = errors.New("Unclosed lisp expression")
 
-func expandTemplates(s Scope, args string) (string, error) {
+func ExpandTemplatesIn(s Scope, in []byte) ([]byte, error) {
+	var buf bytes.Buffer
+
+	fin := len(in)
+
+	name := bytes.TrimSpace(in[:fin])
+
+	parts := strings.Split(string(name), ".")
+
+	var (
+		val Value
+		ok  bool
+	)
+
+	if len(parts) == 1 {
+		val, ok = s.Get(string(name))
+	} else {
+		cur := parts[0]
+
+		val, ok = s.Get(cur)
+		if val == nil {
+			return nil, fmt.Errorf("Variable '%s' is not found.", cur)
+		}
+
+		for _, sub := range parts[1:] {
+			m, ok := val.(Map)
+			if !ok {
+				m, ok = val.Read().(Map)
+				if !ok {
+					return nil, fmt.Errorf("Variable '%s' is not a Map (%T)", cur, val.Read())
+				}
+			}
+
+			val, ok = m.Get(sub)
+			if !ok {
+				return nil, fmt.Errorf("Variable '%s' has no key '%s'", cur, sub)
+			}
+			cur = sub
+		}
+	}
+
+	if ok {
+		switch val := val.Read().(type) {
+		case int64, int:
+			buf.WriteString(fmt.Sprintf("%d", val))
+		default:
+			buf.WriteString(fmt.Sprintf("%s", val))
+		}
+
+	} else {
+		return nil, fmt.Errorf("Undefined variable: %s", string(name))
+	}
+
+	return buf.Bytes(), nil
+}
+
+func ExpandTemplates(s Scope, args string) (string, error) {
 	a := []byte(args)
 
 	var buf bytes.Buffer
@@ -40,51 +97,12 @@ func expandTemplates(s Scope, args string) (string, error) {
 			return "", eUnclosedTemplate
 		}
 
-		name := bytes.TrimSpace(in[:fin])
-
-		parts := strings.Split(string(name), ".")
-
-		var (
-			val Value
-			ok  bool
-		)
-
-		if len(parts) == 1 {
-			val, ok = s.Get(string(name))
-		} else {
-			cur := parts[0]
-
-			val, ok = s.Get(cur)
-
-			for _, sub := range parts[1:] {
-				m, ok := val.(Map)
-				if !ok {
-					m, ok = val.Read().(Map)
-					if !ok {
-						return "", fmt.Errorf("Variable '%s' is not a Map (%T)", cur, val.Read())
-					}
-				}
-
-				val, ok = m.Get(sub)
-				if !ok {
-					return "", fmt.Errorf("Variable '%s' has no key '%s'", cur, sub)
-				}
-				cur = sub
-			}
+		ex, err := ExpandTemplatesIn(s, in[:fin])
+		if err != nil {
+			return "", err
 		}
-
-		if ok {
-			switch val := val.Read().(type) {
-			case int64, int:
-				buf.WriteString(fmt.Sprintf("%d", val))
-			default:
-				buf.WriteString(fmt.Sprintf("%s", val))
-			}
-
-			a = in[fin+2:]
-		} else {
-			return "", fmt.Errorf("Undefined variable: %s", string(name))
-		}
+		buf.Write(ex)
+		a = in[fin+2:]
 	}
 
 	return buf.String(), nil
@@ -182,12 +200,15 @@ func (s lispInferredScope) Create(key string, v lisp.Value) lisp.Value {
 var cDollar = []byte(`$`)
 
 func ExpandVars(s Scope, args string) (string, error) {
-	args, err := expandTemplates(s, args)
+	args, err := ExpandTemplates(s, args)
 
 	if err != nil {
 		return "", err
 	}
+	return ExpandVarsOnly(s, args)
+}
 
+func ExpandVarsOnly(s Scope, args string) (string, error) {
 	a := []byte(args)
 
 	var buf bytes.Buffer
